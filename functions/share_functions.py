@@ -87,9 +87,17 @@ def create_share_link(access_token, share_name, share_expire, file_id_list, shar
         response = requests.post(url, headers=headers, json=body)
         if response.status_code == 200:
             data = response.json()
-            print("请求成功！分享链接已创建。")
-            print("分享ID:", data['shareID'])
-            print("分享码:", data['shareKey'])
+            if data.get("code") == 0:
+                print("请求成功！分享链接已创建。")
+                share_id = data['data'].get('shareID')
+                share_key = data['data'].get('shareKey')
+                if share_id and share_key:
+                    print("分享ID:", share_id)
+                    print("分享码:", share_key)
+                else:
+                    print("分享链接创建成功，但返回数据缺失分享ID或分享码。")
+            else:
+                print("请求失败，返回信息:", data.get("message"))
         else:
             print("请求失败，状态码:", response.status_code)
             print("响应内容:", response.text)

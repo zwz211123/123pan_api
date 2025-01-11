@@ -2,12 +2,25 @@ import os
 import json
 import time
 import requests
-from functions.share_functions import get_share_list, update_share_info, create_share_link  # 导入分享功能模块
-from functions.file_management import get_file_list, get_file_detail, print_file_detail, move_files, rename_files, trash_files, delete_files, recover_files  # 导入文件管理功能模块
+from functions.share_functions import (
+    get_share_list,
+    update_share_info,
+    create_share_link
+)  # 导入分享功能模块
+from functions.file_management import (
+    get_file_list,
+    get_file_detail,
+    print_file_detail,
+    move_files,
+    rename_files,
+    trash_files,
+    delete_files,
+    recover_files
+)  # 导入文件管理功能模块
 
 CLIENT_ID = "3fc58cfe32d24fcdb35f373caa9c6ca8"  # 替换为实际的 client_id
 CLIENT_SECRET = "b6a0d571f969456da302dd10c5dff7f1"  # 替换为实际的 client_secret
-TOKEN_FILE = '.\\python\\123pan_api\\access_token.json'
+TOKEN_FILE = '.\\access_token.json'
 
 def get_access_token(client_id, client_secret):
     url = "https://open-api.123pan.com/api/v1/access_token"
@@ -28,17 +41,17 @@ def get_access_token(client_id, client_secret):
                 print("Access Token:", access_token)
                 print("过期时间:", expired_at)
                 save_access_token(access_token, expired_at)
-                return access_token, expired_at
+                return access_token
             else:
                 print("请求失败，返回信息:", data.get("message"))
-                return None, None
+                return None
         else:
             print("请求失败，状态码:", response.status_code)
             print("响应内容:", response.text)
-            return None, None
+            return None
     except Exception as e:
         print("发生错误:", e)
-        return None, None
+        return None
 
 def save_access_token(access_token, expired_at):
     os.makedirs(os.path.dirname(TOKEN_FILE), exist_ok=True)
@@ -46,12 +59,14 @@ def save_access_token(access_token, expired_at):
         json.dump({'access_token': access_token, 'expired_at': expired_at}, f)
 
 def load_access_token():
+    """ 检查 access_token 文件的有效性，返回有效的 token 或 None """
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, 'r') as f:
             data = json.load(f)
             access_token = data.get('access_token')
             expired_at = data.get('expired_at')
             if access_token and expired_at:
+                # 检查 token 是否过期
                 if time.time() < time.mktime(time.strptime(expired_at, "%Y-%m-%dT%H:%M:%S%z")):
                     return access_token
                 else:
@@ -63,16 +78,11 @@ def load_access_token():
     return None
 
 def main():
-    has_token = input("您是否已有有效的 Access Token? (y/n): ").strip().lower()
+    access_token = load_access_token()  # 尝试加载现有的 Access Token
 
-    if has_token == 'y':
-        access_token = load_access_token()
-        if access_token:
-            print("已加载 Access Token:", access_token)
-        else:
-            access_token, _ = get_access_token(CLIENT_ID, CLIENT_SECRET)
-    else:
-        access_token, _ = get_access_token(CLIENT_ID, CLIENT_SECRET)
+    # 如果加载的 Token 不存在或无效，则请求新的 Token
+    if access_token is None:
+        access_token = get_access_token(CLIENT_ID, CLIENT_SECRET)
 
     while True:
         print("\n欢迎使用云盘 API")
@@ -112,7 +122,7 @@ def main():
                 elif share_choice == '3':
                     share_name = input("请输入分享链接名称：")
                     share_expire = input("请输入分享链接有效期天数 (1、7、30、0)：")
-                    file_id_list = input("请输入分享文件ID列表（以逗号分隔）：")
+                    file_id_list = input("请输入分享文件ID列表（以逗号分隔）：").split(',')
                     share_pwd = input("请输入分享链接提取码（可选，回车跳过）：")
                     traffic_switch = input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
                     traffic_switch = int(traffic_switch) if traffic_switch else None
