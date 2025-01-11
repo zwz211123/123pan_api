@@ -17,10 +17,15 @@ from functions.file_management import (
     delete_files,
     recover_files
 )  # 导入文件管理功能模块
+from functions.direct_link import (  # 导入直链功能模块
+    enable_direct_link,
+    disable_direct_link,
+    get_direct_link
+)
 
 CLIENT_ID = "3fc58cfe32d24fcdb35f373caa9c6ca8"  # 替换为实际的 client_id
 CLIENT_SECRET = "b6a0d571f969456da302dd10c5dff7f1"  # 替换为实际的 client_secret
-TOKEN_FILE = '.\\access_token.json'
+TOKEN_FILE = './access_token.json'
 
 def get_access_token(client_id, client_secret):
     url = "https://open-api.123pan.com/api/v1/access_token"
@@ -88,9 +93,10 @@ def main():
         print("\n欢迎使用云盘 API")
         print("1. 分享功能")
         print("2. 文件管理")
+        print("3. 直链功能")
         print("0. 退出程序")
 
-        choice = input("请选择操作（0-2）：")
+        choice = input("请选择操作（0-3）：")
 
         if choice == '1':
             while True:
@@ -109,7 +115,7 @@ def main():
                     get_share_list(access_token, limit, last_share_id)
 
                 elif share_choice == '2':
-                    share_id_list = input("请输入分享链接ID列表（以逗号分隔）：").split(',')
+                    share_id_list = input("请输入分享链接ID列表（以逗号分隔）：")
                     share_id_list = [int(id) for id in share_id_list]
                     traffic_switch = input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
                     traffic_switch = int(traffic_switch) if traffic_switch else None
@@ -122,7 +128,7 @@ def main():
                 elif share_choice == '3':
                     share_name = input("请输入分享链接名称：")
                     share_expire = input("请输入分享链接有效期天数 (1、7、30、0)：")
-                    file_id_list = input("请输入分享文件ID列表（以逗号分隔）：").split(',')
+                    file_id_list = input("请输入分享文件ID列表（以逗号分隔）：")
                     share_pwd = input("请输入分享链接提取码（可选，回车跳过）：")
                     traffic_switch = input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
                     traffic_switch = int(traffic_switch) if traffic_switch else None
@@ -200,6 +206,34 @@ def main():
                     recover_files(access_token, file_ids)
 
                 elif file_choice == '0':
+                    print("返回主菜单。")
+                    break
+                else:
+                    print("无效的选项，请重新输入。")
+
+        elif choice == '3':
+            while True:
+                print("\n请选择直链功能：")
+                print("1. 启用直链")
+                print("2. 禁用直链")
+                print("3. 获取直链链接")
+                print("0. 返回主菜单")
+                
+                direct_link_choice = input("请输入选项（0-3）：")
+                
+                if direct_link_choice == '1':
+                    file_id = int(input("请输入启用直链的文件夹ID："))
+                    enable_direct_link(access_token, file_id)
+
+                elif direct_link_choice == '2':
+                    file_id = int(input("请输入禁用直链的文件夹ID："))
+                    disable_direct_link(access_token, file_id)
+
+                elif direct_link_choice == '3':
+                    file_id = int(input("请输入需要获取直链链接的文件ID："))
+                    get_direct_link(access_token, file_id)
+
+                elif direct_link_choice == '0':
                     print("返回主菜单。")
                     break
                 else:

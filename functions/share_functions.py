@@ -4,7 +4,7 @@ def get_share_list(access_token, limit, last_share_id=None):
     url = "https://open-api.123pan.com/api/v1/share/list"
     headers = {
         "Authorization": access_token,
-        "platform": "open_platform"
+        "Platform": "open_platform"
     }
     params = {
         "limit": limit
@@ -66,7 +66,7 @@ def create_share_link(access_token, share_name, share_expire, file_id_list, shar
     url = "https://open-api.123pan.com/api/v1/share/create"
     headers = {
         "Authorization": access_token,
-        "platform": "open_platform"
+        "Platform": "open_platform"
     }
     body = {
         "shareName": share_name,
