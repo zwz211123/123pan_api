@@ -25,9 +25,12 @@ from functions.share_functions import (
     create_share_link
 )  # 导入分享功能模块
 
-CLIENT_ID = "3fc58cfe32d24fcdb35f373caa9c6ca8"  # 替换为实际的 client_id
-CLIENT_SECRET = "b6a0d571f969456da302dd10c5dff7f1"  # 替换为实际的 client_secret
-TOKEN_FILE = './access_token.json'
+with open('access.json', 'r') as flae:
+    date = json.load(flae)
+
+CLIENT_ID = date['client_id']
+CLIENT_SECRET = date['client_secret']
+TOKEN_FILE = "./access.json"
 
 def get_access_token(client_id, client_secret):
     url = "https://open-api.123pan.com/api/v1/access_token"
