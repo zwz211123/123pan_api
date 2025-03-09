@@ -1,12 +1,14 @@
-import os
 import json
+import os
 import time
+
 import requests
-from functions.share_functions import (
-    get_share_list,
-    update_share_info,
-    create_share_link
-)  # 导入分享功能模块
+
+from functions.direct_link import (  # 导入直链功能模块
+    enable_direct_link,
+    disable_direct_link,
+    get_direct_link
+)
 from functions.file_management import (
     get_file_list,
     get_file_detail,
@@ -17,11 +19,11 @@ from functions.file_management import (
     delete_files,
     recover_files
 )  # 导入文件管理功能模块
-from functions.direct_link import (  # 导入直链功能模块
-    enable_direct_link,
-    disable_direct_link,
-    get_direct_link
-)
+from functions.share_functions import (
+    get_share_list,
+    update_share_info,
+    create_share_link
+)  # 导入分享功能模块
 
 CLIENT_ID = "3fc58cfe32d24fcdb35f373caa9c6ca8"  # 替换为实际的 client_id
 CLIENT_SECRET = "b6a0d571f969456da302dd10c5dff7f1"  # 替换为实际的 client_secret
