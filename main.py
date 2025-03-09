@@ -25,12 +25,19 @@ from functions.share_functions import (
     create_share_link
 )  # 导入分享功能模块
 
-with open('access.json', 'r') as flae:
-    date = json.load(flae)
+with open('access.json', 'r') as f:
+    date = json.load(f)
+    if date["client_id"] and date["client_secret"]:
+        air = 0
+    else:
+        print("请把client_id和client_secret放入access.json中")
+        with open('access.json', 'w') as f1:
+            json.dump({'client_id': "", 'client_secret': ""}, f1)
 
 CLIENT_ID = date['client_id']
 CLIENT_SECRET = date['client_secret']
 TOKEN_FILE = "./access.json"
+
 
 def get_access_token(client_id, client_secret):
     url = "https://open-api.123pan.com/api/v1/access_token"
@@ -63,10 +70,12 @@ def get_access_token(client_id, client_secret):
         print("发生错误:", e)
         return None
 
+
 def save_access_token(access_token, expired_at):
     os.makedirs(os.path.dirname(TOKEN_FILE), exist_ok=True)
     with open(TOKEN_FILE, 'w') as f:
-        json.dump({'access_token': access_token, 'expired_at': expired_at}, f)
+        json.dump({'access_token': access_token, 'expired_at': expired_at, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}, f)
+
 
 def load_access_token():
     """ 检查 access_token 文件的有效性，返回有效的 token 或 None """
@@ -86,6 +95,7 @@ def load_access_token():
     else:
         print("没有找到 Access Token 文件，需获取新 Token。")
     return None
+
 
 def main():
     access_token = load_access_token()  # 尝试加载现有的 Access Token
@@ -141,7 +151,8 @@ def main():
                     traffic_limit_switch = int(traffic_limit_switch) if traffic_limit_switch else None
                     traffic_limit = input("请输入免登陆限制流量（单位：字节，可选，回车跳过）：")
                     traffic_limit = int(traffic_limit) if traffic_limit else None
-                    create_share_link(access_token, share_name, share_expire, file_id_list, share_pwd, traffic_switch, traffic_limit_switch, traffic_limit)
+                    create_share_link(access_token, share_name, share_expire, file_id_list, share_pwd, traffic_switch,
+                                      traffic_limit_switch, traffic_limit)
 
                 elif share_choice == '0':
                     print("返回主菜单。")
@@ -173,7 +184,8 @@ def main():
                     last_file_id = input("请输入翻页查询的 lastFileId（可选，回车跳过）：")
                     last_file_id = int(last_file_id) if last_file_id else None
 
-                    last_file_id = get_file_list(access_token, parent_file_id, limit, search_data, search_mode, last_file_id)
+                    last_file_id = get_file_list(access_token, parent_file_id, limit, search_data, search_mode,
+                                                 last_file_id)
 
                 elif file_choice == '2':
                     file_id = int(input("请输入文件 ID 获取详细信息："))
@@ -223,9 +235,9 @@ def main():
                 print("2. 禁用直链")
                 print("3. 获取直链链接")
                 print("0. 返回主菜单")
-                
+
                 direct_link_choice = input("请输入选项（0-3）：")
-                
+
                 if direct_link_choice == '1':
                     file_id = int(input("请输入启用直链的文件夹ID："))
                     enable_direct_link(access_token, file_id)
@@ -250,6 +262,7 @@ def main():
 
         else:
             print("无效的选项，请重新输入。")
+
 
 if __name__ == "__main__":
     main()
