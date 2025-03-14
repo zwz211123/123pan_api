@@ -25,6 +25,7 @@ from functions.share_functions import (
     create_share_link
 )  # 导入分享功能模块
 
+#将 clientId和 clientSecret 以外部文件形式存储
 with open('access.json', 'r') as f:
     date = json.load(f)
     if date["client_id"] and date["client_secret"]:
@@ -134,10 +135,13 @@ def main():
                     share_id_list = [int(id) for id in share_id_list]
                     traffic_switch = input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
                     traffic_switch = int(traffic_switch) if traffic_switch else None
-                    traffic_limit_switch = input("请输入免登录流量限制开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
-                    traffic_limit_switch = int(traffic_limit_switch) if traffic_limit_switch else None
-                    traffic_limit = input("请输入免登陆限制流量（单位：字节，可选，回车跳过）：")
-                    traffic_limit = int(traffic_limit) if traffic_limit else None
+                    traffic_limit_switch = None
+                    traffic_limit = None
+                    if traffic_switch == '2':
+                        traffic_limit_switch = input("请输入免登录流量限制开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
+                        traffic_limit_switch = int(traffic_limit_switch) if traffic_limit_switch else None
+                        traffic_limit = input("请输入免登陆限制流量（单位：字节，可选，回车跳过）：")
+                        traffic_limit = int(traffic_limit) if traffic_limit else None
                     update_share_info(access_token, share_id_list, traffic_switch, traffic_limit_switch, traffic_limit)
 
                 elif share_choice == '3':
@@ -147,10 +151,14 @@ def main():
                     share_pwd = input("请输入分享链接提取码（可选，回车跳过）：")
                     traffic_switch = input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
                     traffic_switch = int(traffic_switch) if traffic_switch else None
-                    traffic_limit_switch = input("请输入免登录流量限制开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
-                    traffic_limit_switch = int(traffic_limit_switch) if traffic_limit_switch else None
-                    traffic_limit = input("请输入免登陆限制流量（单位：字节，可选，回车跳过）：")
-                    traffic_limit = int(traffic_limit) if traffic_limit else None
+                    traffic_limit_switch = None
+                    traffic_limit = None
+                    if traffic_switch == '2':
+                        traffic_limit_switch = input("请输入免登录流量限制开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
+                        traffic_limit_switch = int(traffic_limit_switch) if traffic_limit_switch else None
+                        if traffic_limit_switch == '2':
+                            traffic_limit = input("请输入免登陆限制流量（单位：字节，可选，回车跳过）：")
+                            traffic_limit = int(traffic_limit) if traffic_limit else None
                     create_share_link(access_token, share_name, share_expire, file_id_list, share_pwd, traffic_switch,
                                       traffic_limit_switch, traffic_limit)
 
@@ -179,10 +187,13 @@ def main():
                     parent_file_id = int(input("请输入要查询的目录 ID（根目录为 0）："))
                     limit = int(input("请输入每页文件数量（最大不超过100）："))
                     search_data = input("请输入搜索关键字（可选，回车跳过）：") or None
-                    search_mode = input("请输入搜索模式 (0: 全文模糊搜索, 1: 精准搜索，可选，回车跳过)：")
-                    search_mode = int(search_mode) if search_mode else None
-                    last_file_id = input("请输入翻页查询的 lastFileId（可选，回车跳过）：")
-                    last_file_id = int(last_file_id) if last_file_id else None
+                    search_mode = None
+                    last_file_id = None
+                    if search_data:
+                        search_mode = input("请输入搜索模式 (0: 全文模糊搜索, 1: 精准搜索，可选，回车跳过)：")
+                        search_mode = int(search_mode) if search_mode else None
+                        last_file_id = input("请输入翻页查询的 lastFileId（可选，回车跳过）：")
+                        last_file_id = int(last_file_id) if last_file_id else None
 
                     last_file_id = get_file_list(access_token, parent_file_id, limit, search_data, search_mode,
                                                  last_file_id)
