@@ -1,279 +1,252 @@
-import json
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
-import time
+import sys
+from api import PanAPI
 
-import requests
+def print_main_menu():
+    """打印主菜单"""
+    print("\n欢迎使用123云盘 API")
+    print("1. 分享功能")
+    print("2. 文件管理")
+    print("3. 直链功能")
+    print("0. 退出程序")
 
-from functions.direct_link import (  # 导入直链功能模块
-    enable_direct_link,
-    disable_direct_link,
-    get_direct_link
-)
-from functions.file_management import (
-    get_file_list,
-    get_file_detail,
-    print_file_detail,
-    move_files,
-    rename_files,
-    trash_files,
-    delete_files,
-    recover_files
-)  # 导入文件管理功能模块
-from functions.share_functions import (
-    get_share_list,
-    update_share_info,
-    create_share_link
-)  # 导入分享功能模块
+def print_share_menu():
+    """打印分享功能菜单"""
+    print("\n选择分享功能:")
+    print("1. 获取分享列表")
+    print("2. 更新分享信息")
+    print("3. 创建分享链接")
+    print("0. 返回主菜单")
 
-#将 clientId和 clientSecret 以外部文件形式存储
-with open('access.json', 'r') as f:
-    date = json.load(f)
-    if date["client_id"] and date["client_secret"]:
-        air = 0
-    else:
-        print("请把client_id和client_secret放入access.json中")
-        with open('access.json', 'w') as f1:
-            json.dump({'client_id': "", 'client_secret': ""}, f1)
+def print_file_menu():
+    """打印文件管理菜单"""
+    print("\n选择文件管理功能:")
+    print("1. 获取文件列表")
+    print("2. 查看文件详情")
+    print("3. 移动文件")
+    print("4. 重命名文件")
+    print("5. 将文件移至回收站")
+    print("6. 永久删除文件")
+    print("7. 从回收站恢复文件")
+    print("0. 返回主菜单")
 
-CLIENT_ID = date['client_id']
-CLIENT_SECRET = date['client_secret']
-TOKEN_FILE = "./access.json"
+def print_direct_link_menu():
+    """打印直链功能菜单"""
+    print("\n选择直链功能:")
+    print("1. 启用文件直链")
+    print("2. 禁用文件直链")
+    print("3. 获取文件直链")
+    print("0. 返回主菜单")
 
-
-def get_access_token(client_id, client_secret):
-    url = "https://open-api.123pan.com/api/v1/access_token"
-    headers = {"platform": "open_platform"}
-    body = {
-        "clientID": client_id,
-        "clientSecret": client_secret
-    }
-
-    try:
-        response = requests.post(url, headers=headers, json=body)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("code") == 0:
-                access_token = data['data'].get("accessToken")
-                expired_at = data['data'].get("expiredAt")
-                print("请求成功！获取到 Access Token。")
-                print("Access Token:", access_token)
-                print("过期时间:", expired_at)
-                save_access_token(access_token, expired_at)
-                return access_token
-            else:
-                print("请求失败，返回信息:", data.get("message"))
-                return None
+def handle_share_functions(api):
+    """处理分享功能"""
+    while True:
+        print_share_menu()
+        share_choice = input("请输入选项 (0-3): ")
+        
+        if share_choice == '0':
+            break
+        
+        elif share_choice == '1':
+            # 获取分享列表
+            limit = int(input("请输入每页文件数量 (最大不超过100): "))
+            last_share_id = input("请输入最后一个lastShareId (可选，回车跳过): ")
+            last_share_id = int(last_share_id) if last_share_id else None
+            
+            share_list = api.get_share_list(limit, last_share_id)
+            if share_list:
+                for share in share_list:
+                    print(f"\n  分享 ID: {share.get('shareID')}")
+                    print(f"  分享名称: {share.get('shareName')}")
+                    print(f"  分享码: {share.get('shareKey')}")
+                    print(f"  过期时间: {share.get('expiration')}")
+                    print(f"  是否失效: {'是' if share.get('expired') == 1 else '否'}")
+                    print(f"  分享链接提取码: {share.get('sharePwd') or '无'}")
+        
+        elif share_choice == '2':
+            # 更新分享信息
+            share_id_list = input("请输入分享链接ID列表 (以逗号分隔): ")
+            share_id_list = [int(id) for id in share_id_list.split(',')]
+            
+            traffic_switch = int(input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过): ") or "1")
+            
+            traffic_limit_switch = None
+            traffic_limit = None
+            
+            if traffic_switch == 2:
+                traffic_limit_switch = int(input("请输入免登录流量限制开关 (1: 关闭, 2: 打开，可选，回车跳过): ") or "1")
+                
+                if traffic_limit_switch == 2:
+                    traffic_limit = int(input("请输入免登录流量限制值 (单位：字节，可选，回车跳过): ") or "0")
+            
+            api.update_share_info(share_id_list, traffic_switch, traffic_limit_switch, traffic_limit)
+        
+        elif share_choice == '3':
+            # 创建分享链接
+            file_id_list = input("请输入文件ID列表 (以逗号分隔): ")
+            file_id_list = [int(id) for id in file_id_list.split(',')]
+            
+            share_name = input("请输入分享链接名称: ")
+            share_expire = int(input("请输入分享链接有效期天数 (1, 7, 30, 0表示永久): "))
+            share_pwd = input("请输入分享链接提取码 (可选，回车跳过): ")
+            
+            traffic_switch = int(input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过): ") or "1")
+            
+            traffic_limit_switch = 1
+            traffic_limit = None
+            
+            if traffic_switch == 2:
+                traffic_limit_switch = int(input("请输入免登录流量限制开关 (1: 关闭, 2: 打开，可选，回车跳过): ") or "1")
+                
+                if traffic_limit_switch == 2:
+                    traffic_limit = int(input("请输入免登录流量限制值 (单位：字节，可选，回车跳过): ") or "0")
+            
+            api.create_share_link(file_id_list, share_name, share_expire, share_pwd, traffic_switch, traffic_limit_switch, traffic_limit)
+        
         else:
-            print("请求失败，状态码:", response.status_code)
-            print("响应内容:", response.text)
-            return None
-    except Exception as e:
-        print("发生错误:", e)
-        return None
+            print("无效选项，请重新输入")
 
+def handle_file_functions(api):
+    """处理文件管理功能"""
+    while True:
+        print_file_menu()
+        file_choice = input("请输入选项 (0-7): ")
+        
+        if file_choice == '0':
+            break
+        
+        elif file_choice == '1':
+            # 获取文件列表
+            parent_file_id = int(input("请输入父文件夹ID (默认为0，表示根目录): ") or "0")
+            limit = int(input("请输入每页文件数量 (最大不超过100): ") or "100")
+            search_data = input("请输入搜索关键词 (可选，回车跳过): ")
+            search_data = search_data if search_data else None
+            
+            search_mode = input("请输入搜索模式 (可选，回车跳过): ")
+            search_mode = search_mode if search_mode else None
+            
+            last_file_id = input("请输入上一页最后一个文件ID (可选，回车跳过): ")
+            last_file_id = int(last_file_id) if last_file_id else None
+            
+            file_list, last_file_id = api.get_file_list(parent_file_id, limit, search_data, search_mode, last_file_id)
+            
+            if file_list:
+                for file in file_list:
+                    # 解析文件信息
+                    file_id = file.get('fileID')
+                    filename = file.get('filename')
+                    file_type = '文件夹' if file['type'] == 0 else '文件'
+                    size = file.get('size', 0)
+                    etag = file.get('etag', '')
+                    
+                    print(f"\n  文件ID: {file_id}")
+                    print(f"  文件名: {filename}")
+                    print(f"  类型: {file_type}")
+                    print(f"  大小: {size} 字节")
+                    print(f"  ETag: {etag}")
+                
+                print(f"\n最后一个文件ID: {last_file_id}")
+        
+        elif file_choice == '2':
+            # 查看文件详情
+            file_id = int(input("请输入文件ID: "))
+            api.print_file_detail(file_id)
+        
+        elif file_choice == '3':
+            # 移动文件
+            file_ids = input("请输入要移动的文件ID列表 (以逗号分隔): ")
+            file_ids = [int(id) for id in file_ids.split(',')]
+            
+            target_parent_id = int(input("请输入目标父文件夹ID: "))
+            api.move_files(file_ids, target_parent_id)
+        
+        elif file_choice == '4':
+            # 重命名文件
+            file_id = int(input("请输入文件ID: "))
+            new_name = input("请输入新文件名: ")
+            api.rename_files(file_id, new_name)
+        
+        elif file_choice == '5':
+            # 将文件移至回收站
+            file_ids = input("请输入要移至回收站的文件ID列表 (以逗号分隔): ")
+            file_ids = [int(id) for id in file_ids.split(',')]
+            api.trash_files(file_ids)
+        
+        elif file_choice == '6':
+            # 永久删除文件
+            file_ids = input("请输入要永久删除的文件ID列表 (以逗号分隔): ")
+            file_ids = [int(id) for id in file_ids.split(',')]
+            api.delete_files(file_ids)
+        
+        elif file_choice == '7':
+            # 从回收站恢复文件
+            file_ids = input("请输入要从回收站恢复的文件ID列表 (以逗号分隔): ")
+            file_ids = [int(id) for id in file_ids.split(',')]
+            api.recover_files(file_ids)
+        
+        else:
+            print("无效选项，请重新输入")
 
-def save_access_token(access_token, expired_at):
-    os.makedirs(os.path.dirname(TOKEN_FILE), exist_ok=True)
-    with open(TOKEN_FILE, 'w') as f:
-        json.dump({'access_token': access_token, 'expired_at': expired_at, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}, f)
-
-
-def load_access_token():
-    """ 检查 access_token 文件的有效性，返回有效的 token 或 None """
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, 'r') as f:
-            data = json.load(f)
-            access_token = data.get('access_token')
-            expired_at = data.get('expired_at')
-            if access_token and expired_at:
-                # 检查 token 是否过期
-                if time.time() < time.mktime(time.strptime(expired_at, "%Y-%m-%dT%H:%M:%S%z")):
-                    return access_token
-                else:
-                    print("Access Token 已过期，需重新获取。")
-            else:
-                print("Access Token 数据不完整，需重新获取。")
-    else:
-        print("没有找到 Access Token 文件，需获取新 Token。")
-    return None
-
+def handle_direct_link_functions(api):
+    """处理直链功能"""
+    while True:
+        print_direct_link_menu()
+        direct_choice = input("请输入选项 (0-3): ")
+        
+        if direct_choice == '0':
+            break
+        
+        elif direct_choice == '1':
+            # 启用文件直链
+            file_id = int(input("请输入文件ID: "))
+            api.enable_direct_link(file_id)
+        
+        elif direct_choice == '2':
+            # 禁用文件直链
+            file_id = int(input("请输入文件ID: "))
+            api.disable_direct_link(file_id)
+        
+        elif direct_choice == '3':
+            # 获取文件直链
+            file_id = int(input("请输入文件ID: "))
+            api.get_direct_link(file_id)
+        
+        else:
+            print("无效选项，请重新输入")
 
 def main():
-    access_token = load_access_token()  # 尝试加载现有的 Access Token
-
-    # 如果加载的 Token 不存在或无效，则请求新的 Token
-    if access_token is None:
-        access_token = get_access_token(CLIENT_ID, CLIENT_SECRET)
-
+    """主函数"""
+    # 创建API实例，默认从access.json读取凭证
+    api = PanAPI(token_file="access.json")
+    
+    # 确保有有效的access_token
+    access_token = api.ensure_token()
+    if not access_token:
+        print("无法获取有效的Access Token，请检查凭证是否正确")
+        return
+    
     while True:
-        print("\n欢迎使用云盘 API")
-        print("1. 分享功能")
-        print("2. 文件管理")
-        print("3. 直链功能")
-        print("0. 退出程序")
-
-        choice = input("请选择操作（0-3）：")
-
-        if choice == '1':
-            while True:
-                print("\n请选择分享功能：")
-                print("1. 获取分享文件列表")
-                print("2. 更新分享链接信息")
-                print("3. 创建分享链接")
-                print("0. 返回主菜单")
-
-                share_choice = input("请输入选项（0-3）：")
-
-                if share_choice == '1':
-                    limit = int(input("请输入每页文件数量（最大不超过100）："))
-                    last_share_id = input("请输入翻页查询的 lastShareId（可选，回车跳过）：")
-                    last_share_id = int(last_share_id) if last_share_id else None
-                    get_share_list(access_token, limit, last_share_id)
-
-                elif share_choice == '2':
-                    share_id_list = input("请输入分享链接ID列表（以逗号分隔）：")
-                    share_id_list = [int(id) for id in share_id_list]
-                    traffic_switch = input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
-                    traffic_switch = int(traffic_switch) if traffic_switch else None
-                    traffic_limit_switch = None
-                    traffic_limit = None
-                    if traffic_switch == '2':
-                        traffic_limit_switch = input("请输入免登录流量限制开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
-                        traffic_limit_switch = int(traffic_limit_switch) if traffic_limit_switch else None
-                        traffic_limit = input("请输入免登陆限制流量（单位：字节，可选，回车跳过）：")
-                        traffic_limit = int(traffic_limit) if traffic_limit else None
-                    update_share_info(access_token, share_id_list, traffic_switch, traffic_limit_switch, traffic_limit)
-
-                elif share_choice == '3':
-                    share_name = input("请输入分享链接名称：")
-                    share_expire = input("请输入分享链接有效期天数 (1、7、30、0)：")
-                    file_id_list = input("请输入分享文件ID列表（以逗号分隔）：")
-                    share_pwd = input("请输入分享链接提取码（可选，回车跳过）：")
-                    traffic_switch = input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
-                    traffic_switch = int(traffic_switch) if traffic_switch else None
-                    traffic_limit_switch = None
-                    traffic_limit = None
-                    if traffic_switch == '2':
-                        traffic_limit_switch = input("请输入免登录流量限制开关 (1: 关闭, 2: 打开，可选，回车跳过)：")
-                        traffic_limit_switch = int(traffic_limit_switch) if traffic_limit_switch else None
-                        if traffic_limit_switch == '2':
-                            traffic_limit = input("请输入免登陆限制流量（单位：字节，可选，回车跳过）：")
-                            traffic_limit = int(traffic_limit) if traffic_limit else None
-                    create_share_link(access_token, share_name, share_expire, file_id_list, share_pwd, traffic_switch,
-                                      traffic_limit_switch, traffic_limit)
-
-                elif share_choice == '0':
-                    print("返回主菜单。")
-                    break
-
-                else:
-                    print("无效的选项，请重新输入。")
-
-        elif choice == '2':
-            while True:
-                print("\n请选择文件管理功能：")
-                print("1. 获取文件列表")
-                print("2. 获取文件详情")
-                print("3. 移动文件")
-                print("4. 重命名文件")
-                print("5. 删除文件至回收站")
-                print("6. 彻底删除文件")
-                print("7. 从回收站恢复文件")
-                print("0. 返回主菜单")
-
-                file_choice = input("请输入选项（0-7）：")
-
-                if file_choice == '1':
-                    parent_file_id = int(input("请输入要查询的目录 ID（根目录为 0）："))
-                    limit = int(input("请输入每页文件数量（最大不超过100）："))
-                    search_data = input("请输入搜索关键字（可选，回车跳过）：") or None
-                    search_mode = None
-                    last_file_id = None
-                    if search_data:
-                        search_mode = input("请输入搜索模式 (0: 全文模糊搜索, 1: 精准搜索，可选，回车跳过)：")
-                        search_mode = int(search_mode) if search_mode else None
-                        last_file_id = input("请输入翻页查询的 lastFileId（可选，回车跳过）：")
-                        last_file_id = int(last_file_id) if last_file_id else None
-
-                    last_file_id = get_file_list(access_token, parent_file_id, limit, search_data, search_mode,
-                                                 last_file_id)
-
-                elif file_choice == '2':
-                    file_id = int(input("请输入文件 ID 获取详细信息："))
-                    file_detail = get_file_detail(access_token, file_id)
-                    if file_detail:
-                        print_file_detail(file_detail)
-
-                elif file_choice == '3':
-                    file_ids_input = input("请输入要移动的文件 ID 列表（以逗号分隔）：")
-                    file_ids = [int(id.strip()) for id in file_ids_input.split(',')]
-                    to_parent_file_id = int(input("请输入要移动到的目标文件夹 ID（根目录为 0）："))
-                    move_files(access_token, file_ids, to_parent_file_id)
-
-                elif file_choice == '4':
-                    rename_input = input("请输入文件 ID 和新的文件名（格式：文件ID|新文件名，多个文件用逗号分隔）：")
-                    rename_list = []
-                    for item in rename_input.split(','):
-                        file_id, new_name = item.split('|')
-                        rename_list.append(f"{file_id.strip()}|{new_name.strip()}")
-                    rename_files(access_token, rename_list)
-
-                elif file_choice == '5':
-                    file_ids_input = input("请输入要删除的文件 ID 列表（以逗号分隔）：")
-                    file_ids = [int(id.strip()) for id in file_ids_input.split(',')]
-                    trash_files(access_token, file_ids)
-
-                elif file_choice == '6':
-                    file_ids_input = input("请输入要彻底删除的文件 ID 列表（以逗号分隔）：")
-                    file_ids = [int(id.strip()) for id in file_ids_input.split(',')]
-                    delete_files(access_token, file_ids)
-
-                elif file_choice == '7':
-                    file_ids_input = input("请输入要恢复的文件 ID 列表（以逗号分隔）：")
-                    file_ids = [int(id.strip()) for id in file_ids_input.split(',')]
-                    recover_files(access_token, file_ids)
-
-                elif file_choice == '0':
-                    print("返回主菜单。")
-                    break
-                else:
-                    print("无效的选项，请重新输入。")
-
-        elif choice == '3':
-            while True:
-                print("\n请选择直链功能：")
-                print("1. 启用直链")
-                print("2. 禁用直链")
-                print("3. 获取直链链接")
-                print("0. 返回主菜单")
-
-                direct_link_choice = input("请输入选项（0-3）：")
-
-                if direct_link_choice == '1':
-                    file_id = int(input("请输入启用直链的文件夹ID："))
-                    enable_direct_link(access_token, file_id)
-
-                elif direct_link_choice == '2':
-                    file_id = int(input("请输入禁用直链的文件夹ID："))
-                    disable_direct_link(access_token, file_id)
-
-                elif direct_link_choice == '3':
-                    file_id = int(input("请输入需要获取直链链接的文件ID："))
-                    get_direct_link(access_token, file_id)
-
-                elif direct_link_choice == '0':
-                    print("返回主菜单。")
-                    break
-                else:
-                    print("无效的选项，请重新输入。")
-
-        elif choice == '0':
-            print("退出程序。")
+        print_main_menu()
+        choice = input("请输入选项 (0-3): ")
+        
+        if choice == '0':
+            print("感谢使用，再见！")
             break
-
+        
+        elif choice == '1':
+            handle_share_functions(api)
+        
+        elif choice == '2':
+            handle_file_functions(api)
+        
+        elif choice == '3':
+            handle_direct_link_functions(api)
+        
         else:
-            print("无效的选项，请重新输入。")
-
+            print("无效选项，请重新输入")
 
 if __name__ == "__main__":
     main()
