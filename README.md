@@ -68,5 +68,5 @@ file_list, last_file_id = api.get_file_list(parent_file_id=0, limit=100)
 
 ## 注意事项
 - 首次运行时会自动获取access_token并保存到access.json文件中
-- access_token有效期通常为7天，过期后会自动重新获取
+- access_token有效期为30天，过期后会自动重新获取
 - 所有API请求都会进行错误处理并输出相应信息
