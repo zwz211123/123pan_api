@@ -1,6 +1,7 @@
 import os
 import sys
 from api import PanAPI
+from needPageTurning import *
 
 def print_main_menu():
     """打印主菜单"""
@@ -49,19 +50,7 @@ def handle_share_functions(api):
         
         elif share_choice == '1':
             # 获取分享列表
-            limit = int(input("请输入每页文件数量 (最大不超过100): " or 100))
-            last_share_id = input("请输入最后一个lastShareId (可选，回车跳过): ")
-            last_share_id = int(last_share_id) if last_share_id else None
-            
-            share_list = api.get_share_list(limit, last_share_id)
-            if share_list:
-                for share in share_list:
-                    print(f"\n  分享 ID: {share.get('shareID')}")
-                    print(f"  分享名称: {share.get('shareName')}")
-                    print(f"  分享码: {share.get('shareKey')}")
-                    print(f"  过期时间: {share.get('expiration')}")
-                    print(f"  是否失效: {'是' if share.get('expired') == 1 else '否'}")
-                    print(f"  分享链接提取码: {share.get('sharePwd') or '无'}")
+            get_share_list_all()
         
         elif share_choice == '2':
             # 更新分享信息
@@ -69,7 +58,11 @@ def handle_share_functions(api):
             while not share_id_list:
                 print('输入无效')
                 share_id_list = input("请输入分享链接ID列表 (以逗号分隔): ")
-            share_id_list = [int(id) for id in share_id_list.split(',')]
+
+            try:
+                share_id_list = [int(id) for id in share_id_list.split(',')]
+            except ValueError:
+                print('请输入正确的ID（数字）')
             
             traffic_switch = int(input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过): ") or "1")
             
