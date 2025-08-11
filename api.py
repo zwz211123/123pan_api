@@ -645,7 +645,7 @@ class PanAPI:
                 data = response.json()
                 if data.get("code") == 0:
                     print("获取分享链接列表成功！")
-                    return data['data'].get("shareList", [])
+                    return data['data']
                 else:
                     print(f"请求失败，返回信息: {data.get('message')}")
             else:
