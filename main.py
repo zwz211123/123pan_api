@@ -148,13 +148,21 @@ def handle_file_functions(api):
         
         elif file_choice == '2':
             # 查看文件详情
-            file_id = int(input("请输入文件ID: "))
+            try:
+                file_id = int(input("请输入文件ID: "))
+            except ValueError:
+                print('输入无效')
+                continue
             api.print_file_detail(file_id)
         
         elif file_choice == '3':
             # 移动文件
             file_ids = input("请输入要移动的文件ID列表 (以逗号分隔): ")
-            file_ids = [int(id) for id in file_ids.split(',')]
+            try:
+                file_ids = [int(id) for id in file_ids.split(',')]
+            except ValueError:
+                print('输入无效')
+                continue
             
             target_parent_id = int(input("请输入目标父文件夹ID: "))
             api.move_files(file_ids, target_parent_id)
@@ -174,13 +182,21 @@ def handle_file_functions(api):
         elif file_choice == '6':
             # 永久删除文件
             file_ids = input("请输入要永久删除的文件ID列表 (以逗号分隔): ")
-            file_ids = [int(id) for id in file_ids.split(',')]
+            try:
+                file_ids = [int(id) for id in file_ids.split(',')]
+            except ValueError:
+                print('输入无效')
+                continue
             api.delete_files(file_ids)
         
         elif file_choice == '7':
             # 从回收站恢复文件
             file_ids = input("请输入要从回收站恢复的文件ID列表 (以逗号分隔): ")
-            file_ids = [int(id) for id in file_ids.split(',')]
+            try:
+                file_ids = [int(id) for id in file_ids.split(',')]
+            except ValueError:
+                print('输入无效')
+                continue
             api.recover_files(file_ids)
         
         else:
@@ -197,17 +213,29 @@ def handle_direct_link_functions(api):
         
         elif direct_choice == '1':
             # 启用文件直链
-            file_id = int(input("请输入文件ID: "))
+            try:
+                file_id = int(input("请输入文件ID: "))
+            except ValueError:
+                print('输入无效')
+                continue                
             api.enable_direct_link(file_id)
         
         elif direct_choice == '2':
             # 禁用文件直链
-            file_id = int(input("请输入文件ID: "))
+            try:
+                file_id = int(input("请输入文件ID: "))
+            except ValueError:
+                print('输入无效')
+                continue
             api.disable_direct_link(file_id)
         
         elif direct_choice == '3':
             # 获取文件直链
-            file_id = int(input("请输入文件ID: "))
+            try:
+                file_id = int(input("请输入文件ID: "))
+            except ValueError:
+                print('输入无效')
+                continue
             api.get_direct_link(file_id)
         
         else:
