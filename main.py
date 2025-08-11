@@ -49,7 +49,7 @@ def handle_share_functions(api):
         
         elif share_choice == '1':
             # 获取分享列表
-            limit = int(input("请输入每页文件数量 (最大不超过100): "))
+            limit = int(input("请输入每页文件数量 (最大不超过100): " or 100))
             last_share_id = input("请输入最后一个lastShareId (可选，回车跳过): ")
             last_share_id = int(last_share_id) if last_share_id else None
             
@@ -66,6 +66,9 @@ def handle_share_functions(api):
         elif share_choice == '2':
             # 更新分享信息
             share_id_list = input("请输入分享链接ID列表 (以逗号分隔): ")
+            while not share_id_list:
+                print('输入无效')
+                share_id_list = input("请输入分享链接ID列表 (以逗号分隔): ")
             share_id_list = [int(id) for id in share_id_list.split(',')]
             
             traffic_switch = int(input("请输入免登录流量包开关 (1: 关闭, 2: 打开，可选，回车跳过): ") or "1")
@@ -84,6 +87,9 @@ def handle_share_functions(api):
         elif share_choice == '3':
             # 创建分享链接
             file_id_list = input("请输入文件ID列表 (以逗号分隔): ")
+            while not file_id_list:
+                print('输入无效')
+                file_id_list = input("请输入文件ID列表 (以逗号分隔): ")
             file_id_list = [int(id) for id in file_id_list.split(',')]
             
             share_name = input("请输入分享链接名称: ")
