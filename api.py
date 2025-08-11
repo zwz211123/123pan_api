@@ -2,6 +2,7 @@ import json
 import os
 import time
 import requests
+from datetime import datetime
 
 class PanAPI:
     def __init__(self, client_id=None, client_secret=None, token_file="./access.json"):
@@ -126,7 +127,9 @@ class PanAPI:
                     expired_at = data['data'].get("expiredAt")
                     
                     # 格式化过期时间
-                    expired_at_formatted = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(expired_at))
+                    expired_at_formatted_temo_1 = datetime.strptime(expired_at ,"%Y-%m-%dT%H:%M:%S%z")
+                    expired_at_timestamp = expired_at_formatted_temo_1.timestamp()
+                    expired_at_formatted = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(expired_at_timestamp))
                     
                     print("请求成功！获取到 Access Token.")
                     print(f"Access Token: {access_token}")
