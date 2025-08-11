@@ -4,7 +4,7 @@ import time
 import requests
 
 class PanAPI:
-    def __init__(self, client_id=None, client_secret=None, token_file="./.access.json"):
+    def __init__(self, client_id=None, client_secret=None, token_file="./access.json"):
         """
         初始化123云盘API客户端
         
