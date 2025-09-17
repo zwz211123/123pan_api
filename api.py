@@ -82,7 +82,7 @@ class PanAPI:
             try:
                 with open(self.token_file, 'r') as f:
                     data = json.load(f)
-            except:
+            except (json.JSONDecodeError, FileNotFoundError, PermissionError):
                 pass
         
         # 更新token信息

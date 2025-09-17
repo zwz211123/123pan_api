@@ -3,7 +3,12 @@ from api import PanAPI
 api = PanAPI(token_file="access.json")
 
 def get_share_list_all():
-    limit = int(input("请输入每页文件数量 (最大不超过100): "))
+    while True:
+        try:
+            limit = int(input("请输入每页文件数量 (最大不超过100): "))
+            break
+        except ValueError:
+            print('输入无效，请输入数字')
     def get_share_list(limit ,nextPage_or_exit_in):             
         r = api.get_share_list(limit, nextPage_or_exit_in)
         share_list = r.get('shareList' ,[])
@@ -17,7 +22,7 @@ def get_share_list_all():
                 print(f"  分享链接提取码: {share.get('sharePwd') or '无'}")
             if r.get('lastShareId') != -1:
                 nextPageStartId = r.get('lastShareId')
-                nextPage_or_exit = input('还有下一页，是否翻页？(y翻页，回车退出)' or 'n')
+                nextPage_or_exit = input('还有下一页，是否翻页？(y翻页，回车退出): ') or 'n'
                 if nextPage_or_exit == 'y':
                     get_share_list(limit, nextPageStartId)
     get_share_list(limit, None)

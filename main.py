@@ -169,14 +169,22 @@ def handle_file_functions(api):
         
         elif file_choice == '4':
             # 重命名文件
-            file_id = int(input("请输入文件ID: "))
+            try:
+                file_id = int(input("请输入文件ID: "))
+            except ValueError:
+                print('输入无效')
+                continue
             new_name = input("请输入新文件名: ")
             api.rename_files(file_id, new_name)
         
         elif file_choice == '5':
             # 将文件移至回收站
             file_ids = input("请输入要移至回收站的文件ID列表 (以逗号分隔): ")
-            file_ids = [int(id) for id in file_ids.split(',')]
+            try:
+                file_ids = [int(id) for id in file_ids.split(',')]
+            except ValueError:
+                print('输入无效')
+                continue
             api.trash_files(file_ids)
         
         elif file_choice == '6':
