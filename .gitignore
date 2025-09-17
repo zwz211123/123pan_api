@@ -23,6 +23,9 @@ wheels/
 # API credentials
 access.json
 
+# Claude Code documentation
+CLAUDE.md
+
 # IDE
 .vscode/
 .idea/
