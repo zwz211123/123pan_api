@@ -23,8 +23,15 @@ wheels/
 # API credentials
 access.json
 
-# Claude Code documentation
+# Claude Code documentation and settings
 CLAUDE.md
+.claude/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Test files
+test_upload.txt
 
 # IDE
 .vscode/
