@@ -1,6 +1,6 @@
 import os
 import sys
-from api import PanAPI
+from upload_api import UploadAPI
 from needPageTurning import *
 
 def print_main_menu():
@@ -9,6 +9,7 @@ def print_main_menu():
     print("1. 分享功能")
     print("2. 文件管理")
     print("3. 直链功能")
+    print("4. 上传功能")
     print("0. 退出程序")
 
 def print_share_menu():
@@ -28,7 +29,8 @@ def print_file_menu():
     print("4. 重命名文件")
     print("5. 将文件移至回收站")
     print("6. 永久删除文件")
-    print("7. 从回收站恢复文件")
+    print("8. 上传文件")
+    print("9. 创建目录")
     print("0. 返回主菜单")
 
 def print_direct_link_menu():
@@ -37,6 +39,13 @@ def print_direct_link_menu():
     print("1. 启用文件直链")
     print("2. 禁用文件直链")
     print("3. 获取文件直链")
+    print("0. 返回主菜单")
+
+def print_upload_menu():
+    """打印上传功能菜单"""
+    print("\n选择上传功能:")
+    print("1. 上传文件")
+    print("2. 创建目录")
     print("0. 返回主菜单")
 
 def handle_share_functions(api):
@@ -206,7 +215,19 @@ def handle_file_functions(api):
                 print('输入无效')
                 continue
             api.recover_files(file_ids)
-        
+
+        elif file_choice == '8':
+            # 上传文件
+            file_path = input("请输入要上传的文件路径: ")
+            parent_file_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            api.upload_file(file_path, parent_file_id)
+
+        elif file_choice == '9':
+            # 创建目录
+            dir_name = input("请输入目录名称: ")
+            parent_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            api.create_directory(dir_name, parent_id)
+
         else:
             print("无效选项，请重新输入")
 
@@ -249,34 +270,61 @@ def handle_direct_link_functions(api):
         else:
             print("无效选项，请重新输入")
 
+def handle_upload_functions(api):
+    """处理上传功能"""
+    while True:
+        print_upload_menu()
+        upload_choice = input("请输入选项 (0-2): ")
+
+        if upload_choice == '0':
+            break
+
+        elif upload_choice == '1':
+            # 上传文件
+            file_path = input("请输入要上传的文件路径: ")
+            parent_file_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            api.upload_file(file_path, parent_file_id)
+
+        elif upload_choice == '2':
+            # 创建目录
+            dir_name = input("请输入目录名称: ")
+            parent_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            api.create_directory(dir_name, parent_id)
+
+        else:
+            print("无效选项，请重新输入")
+
 def main():
     """主函数"""
     # 创建API实例，默认从access.json读取凭证
-    api = PanAPI(token_file="access.json")
-    
+    api = UploadAPI(token_file="access.json")
+
     # 确保有有效的access_token
     access_token = api.ensure_token()
     if not access_token:
         print("无法获取有效的Access Token，请检查凭证是否正确")
         return
-    
+
     while True:
         print_main_menu()
-        choice = input("请输入选项 (0-3): ")
-        
+        choice = input("请输入选项 (0-4): ")
+
         if choice == '0':
             print("感谢使用，再见！")
             break
-        
+
         elif choice == '1':
             handle_share_functions(api)
-        
+
         elif choice == '2':
             handle_file_functions(api)
-        
+
         elif choice == '3':
             handle_direct_link_functions(api)
-        
+
+        elif choice == '4':
+            handle_upload_functions(api)
+
         else:
             print("无效选项，请重新输入")
 
