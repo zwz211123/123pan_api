@@ -29,24 +29,28 @@ class ShareHandler:
         )
         limit = min(limit, 100)
 
-        # Use pagination iterator
+        # Use pagination iterator with proper callback
+        def print_shares(shares):
+            for share in shares:
+                self.menu.print_share_info(share)
+
         paginator = PaginationIterator(
             api_method=self.api.get_share_list,
             initial_params={"limit": limit},
             page_key="lastShareId",
             items_key="shareList",
+            callback=print_shares,
         )
 
-        page_num = 1
+        # Fetch all shares
+        total = 0
         for share in paginator:
-            if page_num == 1:
-                print(f"\n分享列表:")
+            total += 1
 
-            self.menu.print_share_info(share)
-            page_num += 1
-
-        if page_num == 1:
-            print("没有找到分享")
+        if total == 0:
+            self.menu.print_info("没有找到分享")
+        else:
+            self.menu.print_success(f"成功获取 {total} 个分享")
 
     def update_share_info(self):
         """Update share information"""
@@ -148,7 +152,7 @@ class FileHandler:
         self.parser = InputParser()
 
     def get_file_list(self):
-        """Get and display file list"""
+        """Get and display file list with pagination"""
         parent_file_id = self.parser.prompt_optional_int(
             "请输入父文件夹ID (默认为0，表示根目录): ",
             default=0
@@ -168,17 +172,45 @@ class FileHandler:
             "请输入搜索模式 (可选，回车跳过): "
         )
 
-        file_list, last_file_id = self.api.get_file_list(
-            parent_file_id,
-            limit,
-            search_data,
-            search_mode
+        # Use pagination iterator
+        initial_params = {
+            "parent_file_id": parent_file_id,
+            "limit": limit,
+            "search_data": search_data,
+            "search_mode": search_mode,
+        }
+
+        def print_files(files):
+            for file in files:
+                file_id = file.get('fileID')
+                filename = file.get('filename')
+                file_type = '文件夹' if file.get('type') == 0 else '文件'
+                size = file.get('size', 0)
+                etag = file.get('etag', '')
+
+                print(f"\n  文件ID: {file_id}")
+                print(f"  文件名: {filename}")
+                print(f"  类型: {file_type}")
+                print(f"  大小: {size} 字节")
+                print(f"  ETag: {etag}")
+
+        paginator = PaginationIterator(
+            api_method=self.api.get_file_list,
+            initial_params=initial_params,
+            page_key="lastFileID",
+            items_key="fileList",
+            callback=print_files,
         )
 
-        if file_list:
-            self.menu.print_file_list(file_list, last_file_id)
-        else:
+        # Fetch all files
+        total = 0
+        for file in paginator:
+            total += 1
+
+        if total == 0:
             self.menu.print_info("没有找到文件")
+        else:
+            self.menu.print_success(f"成功获取 {total} 个文件")
 
     def view_file_detail(self):
         """View file details"""

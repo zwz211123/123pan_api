@@ -76,18 +76,20 @@ class PaginationIterator:
         try:
             response = self.api_method(**self.initial_params)
 
-            if response is None or (isinstance(response, tuple) and response[0] is None):
+            if response is None:
                 return False
 
-            # Handle tuple responses (for backward compatibility)
+            # Handle tuple responses (file_list API returns (items, cursor))
             if isinstance(response, tuple):
                 items, next_cursor = response
+                if items is None:
+                    return False
             else:
-                # Handle dict responses (for share list)
+                # Handle dict responses (share list API returns dict with items and cursor)
                 items = response.get(self.items_key, [])
                 next_cursor = response.get(self.page_key)
 
-            self.current_page = items
+            self.current_page = items if items else []
             self.current_index = 0
 
             # Execute callback if provided
@@ -95,8 +97,10 @@ class PaginationIterator:
                 self.callback(items)
 
             # Check if there are more pages
+            # -1 indicates no more pages for some APIs
             if next_cursor is None or next_cursor == -1:
                 self.is_exhausted = True
+                return len(self.current_page) > 0
             else:
                 # Update the cursor for next request
                 # Determine the appropriate parameter name
@@ -107,7 +111,7 @@ class PaginationIterator:
                 else:
                     self.initial_params[self.page_key] = next_cursor
 
-            return len(items) > 0
+                return len(self.current_page) > 0
 
         except Exception as e:
             print(f"Error fetching page: {e}")
