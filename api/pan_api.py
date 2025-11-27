@@ -8,6 +8,7 @@ import os
 import time
 import requests
 from datetime import datetime
+from typing import Optional, Tuple, List, Dict, Any
 
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,10 +29,13 @@ from .exceptions import (
     TokenNotFoundError,
     CredentialsError,
 )
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class PanAPI:
-    def __init__(self, client_id=None, client_secret=None, token_file=TOKEN_FILE_PATH):
+    def __init__(self, client_id: Optional[str] = None, client_secret: Optional[str] = None, token_file: str = TOKEN_FILE_PATH) -> None:
         """
         初始化123云盘API客户端
 
@@ -39,6 +43,9 @@ class PanAPI:
             client_id: 客户端ID，如果为None则从token_file中读取
             client_secret: 客户端密钥，如果为None则从token_file中读取
             token_file: 凭证存储文件路径
+
+        Raises:
+            CredentialsError: 如果无法获取客户端凭证
         """
         self.token_file = token_file
         self.client_id = client_id
@@ -53,7 +60,13 @@ class PanAPI:
         if not self.client_id or not self.client_secret:
             self._load_credentials()
 
-    def _load_credentials(self):
+        # 验证凭证
+        if not self.client_id or not self.client_secret:
+            raise CredentialsError(
+                "无法获取客户端凭证。请检查 access.json 文件或直接传入凭证"
+            )
+
+    def _load_credentials(self) -> None:
         """从token_file加载client_id和client_secret"""
         if os.path.exists(self.token_file):
             try:
@@ -62,10 +75,13 @@ class PanAPI:
                     if "client_id" in data and "client_secret" in data:
                         self.client_id = data["client_id"]
                         self.client_secret = data["client_secret"]
-            except Exception as e:
-                print(f"加载凭证出错: {e}")
+                        logger.debug("凭证已从文件加载")
+            except json.JSONDecodeError as e:
+                logger.error(f"凭证文件格式错误: {e}")
+            except (IOError, OSError) as e:
+                logger.error(f"读取凭证文件失败: {e}")
 
-    def load_access_token(self):
+    def load_access_token(self) -> Optional[str]:
         """
         检查access_token文件的有效性，返回有效的token或None
         """
@@ -81,17 +97,20 @@ class PanAPI:
                         if time.time() < time.mktime(time.strptime(expired_at, TOKEN_TIME_FORMAT)):
                             self.access_token = access_token
                             self.expired_at = expired_at
+                            logger.debug("已加载有效的 Access Token")
                             return access_token
                         else:
-                            print("Access Token 已过期，需要重新获取。")
+                            logger.info("Access Token 已过期，需要重新获取")
                     else:
-                        print("Access Token 数据不完整，需要重新获取。")
-            except Exception as e:
-                print(f"没有找到 Access Token 文件，需要获取 Token: {e}")
+                        logger.warning("Access Token 数据不完整，需要重新获取")
+            except json.JSONDecodeError as e:
+                logger.error(f"Token 文件格式错误: {e}")
+            except (IOError, OSError) as e:
+                logger.debug(f"未找到 Access Token 文件: {e}")
 
         return None
 
-    def save_access_token(self, access_token, expired_at):
+    def save_access_token(self, access_token: str, expired_at: str) -> None:
         """
         保存access_token到文件
 
@@ -99,34 +118,42 @@ class PanAPI:
             access_token: 访问令牌
             expired_at: 过期时间
         """
-        # 确保目录存在
-        os.makedirs(os.path.dirname(os.path.abspath(self.token_file)), exist_ok=True)
+        try:
+            # 确保目录存在
+            os.makedirs(os.path.dirname(os.path.abspath(self.token_file)), exist_ok=True)
 
-        # 读取现有数据
-        data = {}
-        if os.path.exists(self.token_file):
-            try:
-                with open(self.token_file, 'r') as f:
-                    data = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError, PermissionError):
-                pass
+            # 读取现有数据
+            data = {}
+            if os.path.exists(self.token_file):
+                try:
+                    with open(self.token_file, 'r') as f:
+                        data = json.load(f)
+                except (json.JSONDecodeError, FileNotFoundError, PermissionError):
+                    pass
 
-        # 更新token信息
-        data['access_token'] = access_token
-        data['expired_at'] = expired_at
-        data['client_id'] = self.client_id
-        data['client_secret'] = self.client_secret
+            # 更新token信息
+            data['access_token'] = access_token
+            data['expired_at'] = expired_at
+            data['client_id'] = self.client_id
+            data['client_secret'] = self.client_secret
 
-        # 写入文件
-        with open(self.token_file, 'w') as f:
-            json.dump(data, f)
+            # 写入文件
+            with open(self.token_file, 'w') as f:
+                json.dump(data, f)
+            logger.debug("Access Token 已保存")
+        except (IOError, OSError) as e:
+            logger.error(f"保存 Access Token 失败: {e}")
 
-    def get_access_token(self):
+    def get_access_token(self) -> Optional[str]:
         """
         获取access_token，如果已有且未过期则直接返回，否则重新获取
 
         返回:
             str: 成功返回access_token，失败返回None
+
+        Raises:
+            NetworkError: 网络请求失败
+            APIError: API 响应错误
         """
         # 如果已有有效token，直接返回
         if self.access_token and self.expired_at:
@@ -147,7 +174,11 @@ class PanAPI:
             response = requests.post(url, headers=headers, json=body)
 
             if response.status_code == 200:
-                data = response.json()
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as e:
+                    raise APIError("API 响应格式错误", original_error=e)
+
                 if data.get("code") == SUCCESS_CODE:
                     access_token = data['data'].get("accessToken")
                     expired_at = data['data'].get("expiredAt")
@@ -157,9 +188,8 @@ class PanAPI:
                     expired_at_timestamp = expired_at_formatted_temo_1.timestamp()
                     expired_at_formatted = time.strftime(TOKEN_TIME_FORMAT, time.localtime(expired_at_timestamp))
 
-                    print("请求成功！获取到 Access Token.")
-                    print(f"Access Token: {access_token}")
-                    print(f"过期时间: {expired_at_formatted}")
+                    logger.info("成功获取 Access Token")
+                    logger.debug(f"Access Token: {access_token}")
 
                     # 保存token
                     self.access_token = access_token
@@ -168,20 +198,47 @@ class PanAPI:
 
                     return access_token
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    raise APIError(
+                        data.get('message', '获取 Access Token 失败'),
+                        code=data.get('code'),
+                        status_code=response.status_code,
+                        response_data=data
+                    )
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
-        except Exception as e:
-            print(f"发生错误: {e}")
+                raise APIError(
+                    f"请求失败，状态码: {response.status_code}",
+                    status_code=response.status_code
+                )
 
-        return None
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
 
-    def ensure_token(self):
+    def ensure_token(self) -> Optional[str]:
         """确保有有效的access_token，如果没有则获取新的"""
         if not self.access_token:
-            self.access_token = self.get_access_token()
+            try:
+                self.access_token = self.get_access_token()
+            except (NetworkError, APIError) as e:
+                logger.error(f"获取 Access Token 失败: {e}")
+                return None
         return self.access_token
+
+    def _handle_request_exceptions(self, exception: Exception) -> None:
+        """处理请求异常并记录日志"""
+        if isinstance(exception, requests.exceptions.ConnectionError):
+            raise NetworkError(f"网络连接失败: {exception}", original_error=exception)
+        elif isinstance(exception, requests.exceptions.Timeout):
+            raise NetworkError(f"请求超时: {exception}", original_error=exception)
+        elif isinstance(exception, requests.exceptions.RequestException):
+            raise NetworkError(f"请求失败: {exception}", original_error=exception)
+        elif isinstance(exception, json.JSONDecodeError):
+            raise APIError("API 响应格式错误", original_error=exception)
+        else:
+            raise APIError(f"未知错误: {exception}", original_error=exception)
 
     # 直链相关API
     def enable_direct_link(self, file_id):
@@ -213,15 +270,15 @@ class PanAPI:
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == SUCCESS_CODE:
-                    print(f"直链空间已成功启用，文件名称: {data.get('filename')}")
+                    logger.info(f"直链空间已成功启用，文件名称: {data.get('filename')}")
                     return True
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return False
 
@@ -254,15 +311,15 @@ class PanAPI:
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == SUCCESS_CODE:
-                    print(f"直链空间已成功禁用，文件名称: {data.get('filename')}")
+                    logger.info(f"直链空间已成功禁用，文件名称: {data.get('filename')}")
                     return True
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return False
 
@@ -299,12 +356,12 @@ class PanAPI:
                     print(f"成功获取直链: {direct_link}")
                     return direct_link
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return None
 
@@ -358,10 +415,10 @@ class PanAPI:
                 print(f"文件列表: {len(file_list)} 个文件:")
                 return file_list, last_file_id
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return None, None
 
@@ -397,12 +454,12 @@ class PanAPI:
                     file_info = data.get('data')
                     return file_info
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return None
 
@@ -458,15 +515,15 @@ class PanAPI:
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == SUCCESS_CODE:
-                    print(f"文件移动成功")
+                    logger.info(f"文件移动成功")
                     return True
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return False
 
@@ -501,15 +558,15 @@ class PanAPI:
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == SUCCESS_CODE:
-                    print(f"文件重命名成功")
+                    logger.info(f"文件重命名成功")
                     return True
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return False
 
@@ -545,12 +602,12 @@ class PanAPI:
                     print(f"文件已移至回收站")
                     return True
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return False
 
@@ -586,12 +643,12 @@ class PanAPI:
                     print(f"文件已永久删除")
                     return True
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return False
 
@@ -627,12 +684,12 @@ class PanAPI:
                     print(f"文件已从回收站恢复")
                     return True
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return False
 
@@ -673,12 +730,12 @@ class PanAPI:
                     print("获取分享链接列表成功！")
                     return data['data']
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return None
 
@@ -721,15 +778,15 @@ class PanAPI:
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == SUCCESS_CODE:
-                    print(f"分享信息更新成功")
+                    logger.info(f"分享信息更新成功")
                     return True
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return False
 
@@ -781,17 +838,17 @@ class PanAPI:
                 data = response.json()
                 if data.get("code") == SUCCESS_CODE:
                     share_info = data.get('data')
-                    print(f"分享创建成功")
+                    logger.info(f"分享创建成功")
                     print(f"分享ID: {share_info.get('shareID')}")
                     print(f"分享链接: {share_info.get('shareUrl')}")
                     print(f"分享密码: {share_info.get('sharePwd') or '无'}")
                     return share_info
                 else:
-                    print(f"请求失败，返回信息: {data.get('message')}")
+                    logger.error(f"请求失败: {data.get('message')}")
             else:
-                print(f"请求失败，状态码: {response.status_code}")
-                print(f"响应内容: {response.text}")
+                logger.error(f"请求失败，状态码: {response.status_code}")
+                logger.debug(f"响应内容: {response.text}")
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
 
         return None

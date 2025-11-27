@@ -3,18 +3,43 @@ Main entry point for 123Pan API CLI
 """
 
 from api import PanAPI
+from api.exceptions import CredentialsError, NetworkError, APIError
 from cli import MenuPrinter, ShareHandler, FileHandler, DirectLinkHandler
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def main():
     """Main function - initialize API and start CLI loop"""
-    # Create API instance, load credentials from access.json
-    api = PanAPI(token_file="access.json")
+    try:
+        # Create API instance, load credentials from access.json
+        api = PanAPI(token_file="access.json")
 
-    # Ensure we have a valid access token
-    access_token = api.ensure_token()
-    if not access_token:
-        print("无法获取有效的Access Token，请检查凭证是否正确")
+        # Ensure we have a valid access token
+        access_token = api.ensure_token()
+        if not access_token:
+            logger.error("无法获取有效的Access Token")
+            print("错误：无法获取有效的Access Token，请检查凭证是否正确")
+            return
+
+    except CredentialsError as e:
+        logger.error(f"凭证错误: {e}")
+        print(f"错误: 凭证无效 - {e}")
+        print("请检查 access.json 文件或直接提供有效的客户端凭证")
+        return
+    except NetworkError as e:
+        logger.error(f"网络错误: {e}")
+        print(f"错误: 网络连接失败 - {e}")
+        print("请检查您的网络连接")
+        return
+    except APIError as e:
+        logger.error(f"API 错误: {e}")
+        print(f"错误: API 请求失败 - {e}")
+        return
+    except Exception as e:
+        logger.error(f"初始化失败: {e}")
+        print(f"错误: 初始化失败 - {e}")
         return
 
     # Initialize menu printer and handlers

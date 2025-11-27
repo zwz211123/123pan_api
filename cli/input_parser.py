@@ -161,20 +161,32 @@ class InputParser:
             print("输入无效，请输入正确的ID列表（用逗号分隔的数字）")
 
     @staticmethod
-    def prompt_positive_int(prompt: str = "请输入数字: ") -> int:
+    def prompt_positive_int(
+        prompt: str = "请输入数字: ",
+        min_val: int = 1,
+        max_val: Optional[int] = None
+    ) -> int:
         """
-        Prompt user for positive integer
+        Prompt user for positive integer with optional range validation
 
         Args:
             prompt: Prompt message
+            min_val: Minimum allowed value (default: 1)
+            max_val: Maximum allowed value (optional)
 
         Returns:
-            Positive integer
+            Positive integer within the specified range
         """
         while True:
             input_str = input(prompt)
             value = InputParser.parse_positive_int(input_str)
             if value is not None:
+                if value < min_val:
+                    print(f"输入无效，请输入不少于 {min_val} 的正整数")
+                    continue
+                if max_val and value > max_val:
+                    print(f"输入无效，请输入 {min_val} 到 {max_val} 之间的数字")
+                    continue
                 return value
             print("输入无效，请输入正整数")
 
