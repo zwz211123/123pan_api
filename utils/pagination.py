@@ -3,6 +3,15 @@ Pagination utilities for handling large result sets
 """
 
 from typing import Callable, Any, Optional, List, Dict
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
+
+# Cursor parameter mapping for different pagination keys
+CURSOR_PARAM_MAPPING = {
+    "lastFileID": "last_file_id",
+    "lastShareId": "last_share_id",
+}
 
 
 class PaginationIterator:
@@ -102,19 +111,19 @@ class PaginationIterator:
                 self.is_exhausted = True
                 return len(self.current_page) > 0
             else:
-                # Update the cursor for next request
-                # Determine the appropriate parameter name
-                if "file" in self.page_key.lower():
-                    self.initial_params["last_file_id"] = next_cursor
-                elif "share" in self.page_key.lower():
-                    self.initial_params["last_share_id"] = next_cursor
+                # Update the cursor for next request using mapping configuration
+                cursor_param_name = CURSOR_PARAM_MAPPING.get(self.page_key)
+                if cursor_param_name:
+                    self.initial_params[cursor_param_name] = next_cursor
                 else:
+                    # Fallback for unmapped pagination keys
+                    logger.warning(f"未知的分页键: {self.page_key}, 使用默认映射")
                     self.initial_params[self.page_key] = next_cursor
 
                 return len(self.current_page) > 0
 
         except Exception as e:
-            print(f"Error fetching page: {e}")
+            logger.error(f"获取分页数据失败: {e}")
             return False
 
     def get_all(self) -> List[Any]:
