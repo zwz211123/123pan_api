@@ -21,6 +21,7 @@ from config import (
     TOKEN_ISO_FORMAT,
     SUCCESS_CODE,
     DEFAULT_PAGE_LIMIT,
+    DEFAULT_TIMEOUT,
 )
 from .exceptions import (
     APIError,
@@ -241,7 +242,7 @@ class PanAPI:
             raise APIError(f"未知错误: {exception}", original_error=exception)
 
     # 直链相关API
-    def enable_direct_link(self, file_id):
+    def enable_direct_link(self, file_id: int) -> bool:
         """
         启用文件直链
 
@@ -250,10 +251,15 @@ class PanAPI:
 
         返回:
             bool: 成功返回True，失败返回False
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return False
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["direct_link_enable"]
         headers = {
@@ -273,16 +279,23 @@ class PanAPI:
                     logger.info(f"直链空间已成功启用，文件名称: {data.get('filename')}")
                     return True
                 else:
-                    logger.error(f"请求失败: {data.get('message')}")
+                    raise APIError(
+                        data.get('message', '启用直链失败'),
+                        code=data.get('code')
+                    )
             else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return False
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
 
-    def disable_direct_link(self, file_id):
+    def disable_direct_link(self, file_id: int) -> bool:
         """
         禁用文件直链
 
@@ -291,10 +304,15 @@ class PanAPI:
 
         返回:
             bool: 成功返回True，失败返回False
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return False
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["direct_link_disable"]
         headers = {
@@ -314,16 +332,23 @@ class PanAPI:
                     logger.info(f"直链空间已成功禁用，文件名称: {data.get('filename')}")
                     return True
                 else:
-                    logger.error(f"请求失败: {data.get('message')}")
+                    raise APIError(
+                        data.get('message', '禁用直链失败'),
+                        code=data.get('code')
+                    )
             else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return False
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
 
-    def get_direct_link(self, file_id):
+    def get_direct_link(self, file_id: int) -> str:
         """
         获取文件直链
 
@@ -331,11 +356,16 @@ class PanAPI:
             file_id: 文件ID
 
         返回:
-            str: 成功返回直链URL，失败返回None
+            str: 成功返回直链URL
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return None
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["direct_link_get"]
         headers = {
@@ -353,20 +383,34 @@ class PanAPI:
                 data = response.json()
                 if data.get("code") == SUCCESS_CODE:
                     direct_link = data['data'].get("url")
-                    print(f"成功获取直链: {direct_link}")
+                    logger.info(f"成功获取直链: {direct_link}")
                     return direct_link
                 else:
-                    logger.error(f"请求失败: {data.get('message')}")
+                    raise APIError(
+                        data.get('message', '获取直链失败'),
+                        code=data.get('code')
+                    )
             else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return None
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
 
     # 文件管理相关API
-    def get_file_list(self, parent_file_id=0, limit=DEFAULT_PAGE_LIMIT, search_data=None, search_mode=None, last_file_id=None):
+    def get_file_list(
+        self,
+        parent_file_id: int = 0,
+        limit: int = DEFAULT_PAGE_LIMIT,
+        search_data: Optional[str] = None,
+        search_mode: Optional[str] = None,
+        last_file_id: Optional[int] = None
+    ) -> Tuple[List[Dict[str, Any]], Optional[int]]:
         """
         获取文件列表
 
@@ -378,11 +422,16 @@ class PanAPI:
             last_file_id: 上一页最后一个文件ID，用于分页
 
         返回:
-            tuple: (file_list, last_file_id) 文件列表和最后一个文件ID，失败返回(None, None)
+            tuple: (file_list, last_file_id) 文件列表和最后一个文件ID
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return None, None
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["file_list"]
         headers = {
@@ -405,24 +454,35 @@ class PanAPI:
             params["lastFileID"] = last_file_id
 
         try:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=DEFAULT_TIMEOUT)
+
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
+
             data = response.json()
 
-            if response.status_code == 200:
-                last_file_id = data.get('data', {}).get('lastFileID')
-                file_list = data.get('data', {}).get('fileList', [])
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '获取文件列表失败'),
+                    code=data.get('code')
+                )
 
-                print(f"文件列表: {len(file_list)} 个文件:")
-                return file_list, last_file_id
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            file_list = data.get('data', {}).get('fileList', [])
+            last_file_id = data.get('data', {}).get('lastFileID')
 
-        return None, None
+            logger.info(f"获取文件列表成功: {len(file_list)} 个文件")
+            return file_list, last_file_id
 
-    def get_file_detail(self, file_id):
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
+
+    def get_file_detail(self, file_id: int) -> Dict[str, Any]:
         """
         获取文件详情
 
@@ -430,11 +490,16 @@ class PanAPI:
             file_id: 文件ID
 
         返回:
-            dict: 成功返回文件详情字典，失败返回None
+            dict: 成功返回文件详情字典
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return None
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["file_info"]
         headers = {
@@ -446,22 +511,31 @@ class PanAPI:
         }
 
         try:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    file_info = data.get('data')
-                    return file_info
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return None
+            data = response.json()
+
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '获取文件详情失败'),
+                    code=data.get('code')
+                )
+
+            file_info = data.get('data')
+            logger.info(f"成功获取文件详情: {file_info.get('filename', 'Unknown')}")
+            return file_info
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
 
     def print_file_detail(self, file_id):
         """
@@ -484,7 +558,7 @@ class PanAPI:
             return True
         return False
 
-    def move_files(self, file_ids, target_parent_id):
+    def move_files(self, file_ids: List[int], target_parent_id: int) -> bool:
         """
         移动文件
 
@@ -493,11 +567,16 @@ class PanAPI:
             target_parent_id: 目标父文件夹ID
 
         返回:
-            bool: 成功返回True，失败返回False
+            bool: 成功返回True
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return False
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["file_move"]
         headers = {
@@ -510,24 +589,32 @@ class PanAPI:
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    logger.info(f"文件移动成功")
-                    return True
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return False
+            data = response.json()
 
-    def rename_files(self, file_id, new_name):
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '文件移动失败'),
+                    code=data.get('code')
+                )
+
+            logger.info("文件移动成功")
+            return True
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
+
+    def rename_files(self, file_id: int, new_name: str) -> bool:
         """
         重命名文件
 
@@ -536,11 +623,16 @@ class PanAPI:
             new_name: 新文件名
 
         返回:
-            bool: 成功返回True，失败返回False
+            bool: 成功返回True
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return False
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["file_rename"]
         headers = {
@@ -553,24 +645,32 @@ class PanAPI:
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    logger.info(f"文件重命名成功")
-                    return True
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return False
+            data = response.json()
 
-    def trash_files(self, file_ids):
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '文件重命名失败'),
+                    code=data.get('code')
+                )
+
+            logger.info("文件重命名成功")
+            return True
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
+
+    def trash_files(self, file_ids: List[int]) -> bool:
         """
         将文件移至回收站
 
@@ -578,11 +678,16 @@ class PanAPI:
             file_ids: 文件ID列表
 
         返回:
-            bool: 成功返回True，失败返回False
+            bool: 成功返回True
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return False
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["file_trash"]
         headers = {
@@ -594,24 +699,32 @@ class PanAPI:
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    print(f"文件已移至回收站")
-                    return True
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return False
+            data = response.json()
 
-    def delete_files(self, file_ids):
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '文件移至回收站失败'),
+                    code=data.get('code')
+                )
+
+            logger.info("文件已移至回收站")
+            return True
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
+
+    def delete_files(self, file_ids: List[int]) -> bool:
         """
         永久删除文件
 
@@ -619,11 +732,16 @@ class PanAPI:
             file_ids: 文件ID列表
 
         返回:
-            bool: 成功返回True，失败返回False
+            bool: 成功返回True
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return False
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["file_delete"]
         headers = {
@@ -635,24 +753,32 @@ class PanAPI:
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    print(f"文件已永久删除")
-                    return True
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return False
+            data = response.json()
 
-    def recover_files(self, file_ids):
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '文件永久删除失败'),
+                    code=data.get('code')
+                )
+
+            logger.info("文件已永久删除")
+            return True
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
+
+    def recover_files(self, file_ids: List[int]) -> bool:
         """
         从回收站恢复文件
 
@@ -660,11 +786,16 @@ class PanAPI:
             file_ids: 文件ID列表
 
         返回:
-            bool: 成功返回True，失败返回False
+            bool: 成功返回True
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return False
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["file_recover"]
         headers = {
@@ -676,25 +807,33 @@ class PanAPI:
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    print(f"文件已从回收站恢复")
-                    return True
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return False
+            data = response.json()
+
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '文件恢复失败'),
+                    code=data.get('code')
+                )
+
+            logger.info("文件已从回收站恢复")
+            return True
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
 
     # 分享相关API
-    def get_share_list(self, limit=DEFAULT_PAGE_LIMIT, last_share_id=None):
+    def get_share_list(self, limit: int = DEFAULT_PAGE_LIMIT, last_share_id: Optional[int] = None) -> Dict[str, Any]:
         """
         获取分享列表
 
@@ -703,11 +842,16 @@ class PanAPI:
             last_share_id: 上一页最后一个分享ID，用于分页
 
         返回:
-            list: 成功返回分享列表，失败返回None
+            dict: 成功返回分享数据字典
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return None
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["share_list"]
         headers = {
@@ -722,24 +866,38 @@ class PanAPI:
             params["lastShareId"] = last_share_id
 
         try:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    print("获取分享链接列表成功！")
-                    return data['data']
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return None
+            data = response.json()
 
-    def update_share_info(self, share_id_list, traffic_switch, traffic_limit_switch=None, traffic_limit=None):
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '获取分享列表失败'),
+                    code=data.get('code')
+                )
+
+            logger.info("获取分享链接列表成功")
+            return data['data']
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
+
+    def update_share_info(
+        self,
+        share_id_list: List[int],
+        traffic_switch: int,
+        traffic_limit_switch: Optional[int] = None,
+        traffic_limit: Optional[int] = None
+    ) -> bool:
         """
         更新分享信息
 
@@ -750,11 +908,16 @@ class PanAPI:
             traffic_limit: 流量限制值（单位：字节）
 
         返回:
-            bool: 成功返回True，失败返回False
+            bool: 成功返回True
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return False
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["share_update"]
         headers = {
@@ -773,24 +936,41 @@ class PanAPI:
                 body["trafficLimit"] = traffic_limit
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    logger.info(f"分享信息更新成功")
-                    return True
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return False
+            data = response.json()
 
-    def create_share_link(self, file_id_list, share_name, share_expire=7, share_pwd=None, traffic_switch=1, traffic_limit_switch=1, traffic_limit=None):
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '分享信息更新失败'),
+                    code=data.get('code')
+                )
+
+            logger.info("分享信息更新成功")
+            return True
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
+
+    def create_share_link(
+        self,
+        file_id_list: List[int],
+        share_name: str,
+        share_expire: int = 7,
+        share_pwd: Optional[str] = None,
+        traffic_switch: int = 1,
+        traffic_limit_switch: int = 1,
+        traffic_limit: Optional[int] = None
+    ) -> Dict[str, Any]:
         """
         创建分享链接
 
@@ -804,11 +984,16 @@ class PanAPI:
             traffic_limit: 流量限制值（单位：字节）
 
         返回:
-            dict: 成功返回分享信息字典，失败返回None
+            dict: 成功返回分享信息字典
+
+        Raises:
+            TokenExpiredError: 访问令牌过期
+            NetworkError: 网络连接失败
+            APIError: API 请求失败
         """
         access_token = self.ensure_token()
         if not access_token:
-            return None
+            raise TokenExpiredError("无法获取访问令牌")
 
         url = ENDPOINTS["share_create"]
         headers = {
@@ -832,23 +1017,31 @@ class PanAPI:
                 body["trafficLimit"] = traffic_limit
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("code") == SUCCESS_CODE:
-                    share_info = data.get('data')
-                    logger.info(f"分享创建成功")
-                    print(f"分享ID: {share_info.get('shareID')}")
-                    print(f"分享链接: {share_info.get('shareUrl')}")
-                    print(f"分享密码: {share_info.get('sharePwd') or '无'}")
-                    return share_info
-                else:
-                    logger.error(f"请求失败: {data.get('message')}")
-            else:
-                logger.error(f"请求失败，状态码: {response.status_code}")
-                logger.debug(f"响应内容: {response.text}")
-        except Exception as e:
-            logger.error(f"发生错误: {e}")
+            if response.status_code != 200:
+                raise APIError(f"HTTP {response.status_code}", status_code=response.status_code)
 
-        return None
+            data = response.json()
+
+            if data.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    data.get('message', '创建分享链接失败'),
+                    code=data.get('code')
+                )
+
+            share_info = data.get('data')
+            logger.info("分享创建成功")
+            logger.info(f"分享ID: {share_info.get('shareID')}")
+            logger.info(f"分享链接: {share_info.get('shareUrl')}")
+            logger.info(f"分享密码: {share_info.get('sharePwd') or '无'}")
+            return share_info
+
+        except requests.exceptions.ConnectionError as e:
+            raise NetworkError(f"网络连接失败: {e}", original_error=e)
+        except requests.exceptions.Timeout as e:
+            raise NetworkError(f"请求超时: {e}", original_error=e)
+        except requests.exceptions.RequestException as e:
+            raise NetworkError(f"请求失败: {e}", original_error=e)
+        except json.JSONDecodeError as e:
+            raise APIError("响应格式错误", original_error=e)
