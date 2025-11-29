@@ -50,19 +50,19 @@ class MenuPrinter:
     def print_file_info(file_info):
         """Print file information"""
         if file_info:
-            print(f"  文件ID: {file_info.get('fileID')}")
+            print(f"  文件ID: {file_info.get('fileId')}")
             print(f"  文件名: {file_info.get('filename')}")
             print(f"  类型: {'文件夹' if file_info.get('type') == 1 else '文件'}")
             print(f"  文件大小: {file_info.get('size')} 字节")
-            print(f"  创建时间: {file_info.get('createTime')}")
-            print(f"  修改时间: {file_info.get('updateTime')}")
+            print(f"  创建时间: {file_info.get('createAt')}")
+            print(f"  修改时间: {file_info.get('updateAt')}")
 
     @staticmethod
     def print_file_list(file_list, last_file_id=None):
         """Print file list"""
         if file_list:
             for file in file_list:
-                file_id = file.get('fileID')
+                file_id = file.get('fileId')
                 filename = file.get('filename')
                 file_type = '文件夹' if file.get('type') == 0 else '文件'
                 size = file.get('size', 0)

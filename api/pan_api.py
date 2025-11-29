@@ -470,6 +470,10 @@ class PanAPI:
             file_list = data.get('data', {}).get('fileList', [])
             last_file_id = data.get('data', {}).get('lastFileID')
 
+            # Debug: Log the raw file list to identify field names
+            if file_list:
+                logger.debug(f"Sample file data: {json.dumps(file_list[0], ensure_ascii=False)}")
+
             logger.info(f"获取文件列表成功: {len(file_list)} 个文件")
             return file_list, last_file_id
 
@@ -549,12 +553,12 @@ class PanAPI:
         """
         file_info = self.get_file_detail(file_id)
         if file_info:
-            print(f"文件ID: {file_info.get('fileID')}")
+            print(f"文件ID: {file_info.get('fileId')}")
             print(f"文件名: {file_info.get('filename')}")
             print(f"文件类型: {'文件夹' if file_info.get('type') == 1 else '文件'}")
             print(f"文件大小: {file_info.get('size')} 字节")
-            print(f"创建时间: {file_info.get('createTime')}")
-            print(f"修改时间: {file_info.get('updateTime')}")
+            print(f"创建时间: {file_info.get('createAt')}")
+            print(f"修改时间: {file_info.get('updateAt')}")
             return True
         return False
 

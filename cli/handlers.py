@@ -220,7 +220,7 @@ class FileHandler:
 
             def print_files(files):
                 for file in files:
-                    file_id = file.get('fileID')
+                    file_id = file.get('fileId')
                     filename = file.get('filename')
                     file_type = '文件夹' if file.get('type') == 0 else '文件'
                     size = file.get('size', 0)
