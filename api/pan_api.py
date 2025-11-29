@@ -730,7 +730,7 @@ class PanAPI:
 
     def delete_files(self, file_ids: List[int]) -> bool:
         """
-        永久删除文件
+        永久删除文件。如果文件不在回收站，先移至回收站；如果已在回收站，直接永久删除
 
         参数:
             file_ids: 文件ID列表
@@ -747,13 +747,45 @@ class PanAPI:
         if not access_token:
             raise TokenExpiredError("无法获取访问令牌")
 
+        # 检查每个文件是否在回收站
+        files_to_trash = []
+        files_to_delete = []
+
+        for file_id in file_ids:
+            try:
+                file_info = self.get_file_detail(file_id)
+                if file_info.get('trashed') == 0:
+                    # 文件不在回收站，需要先移至回收站
+                    files_to_trash.append(file_id)
+                else:
+                    # 文件已在回收站，可以直接删除
+                    files_to_delete.append(file_id)
+            except Exception as e:
+                logger.warning(f"无法获取文件 {file_id} 的详情: {e}，将尝试先移至回收站再删除")
+                files_to_trash.append(file_id)
+
+        # 先将需要移至回收站的文件移至回收站
+        if files_to_trash:
+            logger.info(f"将 {len(files_to_trash)} 个文件移至回收站")
+            try:
+                self.trash_files(files_to_trash)
+                logger.info(f"成功将 {len(files_to_trash)} 个文件移至回收站")
+            except Exception as e:
+                logger.warning(f"移至回收站失败: {e}，将继续尝试永久删除")
+
+        # 再删除所有文件（包括刚刚移至回收站的和已在回收站的）
+        all_files_to_delete = files_to_trash + files_to_delete
+        if not all_files_to_delete:
+            logger.info("没有需要删除的文件")
+            return True
+
         url = ENDPOINTS["file_delete"]
         headers = {
             "Authorization": access_token,
             "Platform": PLATFORM_HEADER
         }
         body = {
-            "fileIDs": file_ids
+            "fileIDs": all_files_to_delete
         }
 
         try:
