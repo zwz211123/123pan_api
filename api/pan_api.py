@@ -172,7 +172,7 @@ class PanAPI:
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
             if response.status_code == 200:
                 try:
@@ -271,7 +271,7 @@ class PanAPI:
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
             if response.status_code == 200:
                 data = response.json()
@@ -324,7 +324,7 @@ class PanAPI:
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=DEFAULT_TIMEOUT)
 
             if response.status_code == 200:
                 data = response.json()
@@ -377,7 +377,7 @@ class PanAPI:
         }
 
         try:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=DEFAULT_TIMEOUT)
 
             if response.status_code == 200:
                 data = response.json()
