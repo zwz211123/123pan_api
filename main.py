@@ -29,6 +29,7 @@ def print_file_menu():
     print("4. 重命名文件")
     print("5. 将文件移至回收站")
     print("6. 永久删除文件")
+    print("7. 从回收站恢复文件")
     print("8. 上传文件")
     print("9. 创建目录")
     print("0. 返回主菜单")
@@ -118,7 +119,7 @@ def handle_file_functions(api):
     """处理文件管理功能"""
     while True:
         print_file_menu()
-        file_choice = input("请输入选项 (0-7): ")
+        file_choice = input("请输入选项 (0-9): ")
         
         if file_choice == '0':
             break
@@ -218,14 +219,25 @@ def handle_file_functions(api):
 
         elif file_choice == '8':
             # 上传文件
-            file_path = input("请输入要上传的文件路径: ")
-            parent_file_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            file_path = input("请输入要上传的文件路径: ").strip().strip('"')
+            try:
+                parent_file_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            except ValueError:
+                print("父目录ID必须是数字")
+                continue
             api.upload_file(file_path, parent_file_id)
 
         elif file_choice == '9':
             # 创建目录
-            dir_name = input("请输入目录名称: ")
-            parent_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            dir_name = input("请输入目录名称: ").strip()
+            if not dir_name:
+                print("目录名称不能为空")
+                continue
+            try:
+                parent_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            except ValueError:
+                print("父目录ID必须是数字")
+                continue
             api.create_directory(dir_name, parent_id)
 
         else:
@@ -281,14 +293,25 @@ def handle_upload_functions(api):
 
         elif upload_choice == '1':
             # 上传文件
-            file_path = input("请输入要上传的文件路径: ")
-            parent_file_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            file_path = input("请输入要上传的文件路径: ").strip().strip('"')
+            try:
+                parent_file_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            except ValueError:
+                print("父目录ID必须是数字")
+                continue
             api.upload_file(file_path, parent_file_id)
 
         elif upload_choice == '2':
             # 创建目录
-            dir_name = input("请输入目录名称: ")
-            parent_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            dir_name = input("请输入目录名称: ").strip()
+            if not dir_name:
+                print("目录名称不能为空")
+                continue
+            try:
+                parent_id = int(input("请输入父目录ID (默认为0，表示根目录): ") or "0")
+            except ValueError:
+                print("父目录ID必须是数字")
+                continue
             api.create_directory(dir_name, parent_id)
 
         else:

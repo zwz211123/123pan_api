@@ -3,6 +3,7 @@ import os
 import requests
 from api import PanAPI
 
+
 class UploadAPI(PanAPI):
     """
     继承PanAPI类，添加上传功能
@@ -26,20 +27,31 @@ class UploadAPI(PanAPI):
         }
 
         try:
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=30)
 
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == 0:
-                    domains = data['data'].get('data', [])
-                    print(f"获取上传域名成功")
+                    domain_data = data.get('data', {})
+                    if isinstance(domain_data, dict):
+                        domains = domain_data.get('data', [])
+                    else:
+                        domains = domain_data
+
+                    if isinstance(domains, str):
+                        domains = [domains]
+                    if not isinstance(domains, list) or not domains:
+                        print("获取上传域名失败：响应中没有可用域名")
+                        return None
+
+                    print("获取上传域名成功")
                     return domains
                 else:
                     print(f"请求失败，返回信息: {data.get('message')}")
             else:
                 print(f"请求失败，状态码: {response.status_code}")
                 print(f"响应内容: {response.text}")
-        except Exception as e:
+        except (requests.RequestException, ValueError, TypeError) as e:
             print(f"发生错误: {e}")
 
         return None
@@ -75,8 +87,8 @@ class UploadAPI(PanAPI):
         返回:
             int: 成功返回文件ID，失败返回None
         """
-        if not os.path.exists(file_path):
-            print(f"文件不存在: {file_path}")
+        if not os.path.isfile(file_path):
+            print(f"文件不存在或不是普通文件: {file_path}")
             return None
 
         # 获取文件信息
@@ -98,8 +110,19 @@ class UploadAPI(PanAPI):
             return None
         print(f"文件MD5: {file_md5}")
 
-        # 使用正确的上传域名
-        server_url = "http://openapi-upload.123242.com"
+        # 上传域名可能会变化，使用接口动态返回的地址。
+        upload_domains = self.get_upload_domains()
+        if not upload_domains:
+            return None
+        server_url = upload_domains[0]
+        if isinstance(server_url, dict):
+            server_url = server_url.get("url") or server_url.get("domain")
+        if not isinstance(server_url, str) or not server_url:
+            print("上传域名格式无效")
+            return None
+        server_url = server_url.rstrip("/")
+        if not server_url.startswith(("http://", "https://")):
+            server_url = f"https://{server_url}"
         print(f"使用上传域名: {server_url}")
 
         # 获取access token
@@ -111,18 +134,14 @@ class UploadAPI(PanAPI):
         # 单步上传
         print("开始上传文件...")
         try:
-            with open(file_path, 'rb') as f:
-                file_data = f.read()
-
             url = f"{server_url}/upload/v2/file/single/create"
 
             # 设置正确的headers
             headers = {
-                'Authorization': f'Bearer {access_token}',
+                'Authorization': access_token,
                 'Platform': 'open_platform'
             }
 
-            files = {'file': (filename, file_data, 'application/octet-stream')}
             data = {
                 'parentFileID': parent_file_id,
                 'filename': filename,
@@ -130,10 +149,16 @@ class UploadAPI(PanAPI):
                 'size': file_size
             }
 
-            response = requests.post(url, headers=headers, files=files, data=data, timeout=60)
-
-            print(f"响应状态码: {response.status_code}")
-            print(f"响应内容: {response.text}")
+            # 直接传文件对象，避免把接近 1GB 的文件一次性读进内存。
+            with open(file_path, 'rb') as file_obj:
+                files = {'file': (filename, file_obj, 'application/octet-stream')}
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    files=files,
+                    data=data,
+                    timeout=(10, 120),
+                )
 
             if response.status_code == 200:
                 result_data = response.json()
@@ -153,7 +178,7 @@ class UploadAPI(PanAPI):
                 print(f"上传失败，HTTP状态码: {response.status_code}")
                 return None
 
-        except Exception as e:
+        except (OSError, requests.RequestException, ValueError, TypeError) as e:
             print(f"上传文件时发生错误: {e}")
             return None
 
@@ -183,7 +208,7 @@ class UploadAPI(PanAPI):
         }
 
         try:
-            response = requests.post(url, headers=headers, json=body)
+            response = requests.post(url, headers=headers, json=body, timeout=30)
 
             if response.status_code == 200:
                 data = response.json()
@@ -196,7 +221,7 @@ class UploadAPI(PanAPI):
             else:
                 print(f"请求失败，状态码: {response.status_code}")
                 print(f"响应内容: {response.text}")
-        except Exception as e:
+        except (requests.RequestException, ValueError, TypeError) as e:
             print(f"发生错误: {e}")
 
         return None

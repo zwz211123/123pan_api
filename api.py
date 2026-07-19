@@ -2,7 +2,6 @@ import json
 import os
 import time
 import requests
-import hashlib
 from datetime import datetime
 
 class PanAPI:
