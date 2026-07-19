@@ -1,0 +1,7 @@
+# 123Pan API Wrapper Dependencies
+# Core dependencies
+requests>=2.28.0
+
+# Development and testing (optional)
+pytest>=7.0.0
+pytest-cov>=3.0.0
