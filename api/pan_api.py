@@ -3,6 +3,7 @@
 Provides programmatic interface to 123Pan API
 """
 
+import hashlib
 import json
 import os
 import time
@@ -294,6 +295,167 @@ class PanAPI:
             raise NetworkError(f"请求失败: {e}", original_error=e)
         except json.JSONDecodeError as e:
             raise APIError("响应格式错误", original_error=e)
+
+    # 上传相关 API
+    def get_upload_domains(self) -> List[str]:
+        """获取当前可用的上传域名。"""
+        access_token = self.ensure_token()
+        if not access_token:
+            raise TokenExpiredError("无法获取访问令牌")
+
+        headers = {
+            "Authorization": access_token,
+            "Platform": PLATFORM_HEADER,
+        }
+        try:
+            response = requests.get(
+                ENDPOINTS["upload_domain"],
+                headers=headers,
+                timeout=DEFAULT_TIMEOUT,
+            )
+            if response.status_code != 200:
+                raise APIError(
+                    f"HTTP {response.status_code}",
+                    status_code=response.status_code,
+                )
+
+            payload = response.json()
+            if payload.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    payload.get("message", "获取上传域名失败"),
+                    code=payload.get("code"),
+                )
+
+            domain_data = payload.get("data", {})
+            domains = domain_data.get("data", []) if isinstance(domain_data, dict) else domain_data
+            if isinstance(domains, str):
+                domains = [domains]
+            if not isinstance(domains, list) or not domains:
+                raise APIError("响应中没有可用的上传域名")
+            return domains
+        except requests.exceptions.RequestException as exc:
+            raise NetworkError(f"获取上传域名失败: {exc}", original_error=exc)
+        except (ValueError, TypeError) as exc:
+            raise APIError(f"上传域名响应格式错误: {exc}")
+
+    @staticmethod
+    def calculate_md5(file_path: str) -> str:
+        """流式计算文件 MD5，避免一次性把大文件读入内存。"""
+        digest = hashlib.md5()
+        try:
+            with open(file_path, "rb") as file_obj:
+                for chunk in iter(lambda: file_obj.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        except OSError as exc:
+            raise APIError(f"计算文件 MD5 失败: {exc}")
+        return digest.hexdigest()
+
+    def upload_file(self, file_path: str, parent_file_id: int = 0) -> int:
+        """单步上传不超过 1 GiB 的文件并返回文件 ID。"""
+        if not os.path.isfile(file_path):
+            raise APIError(f"文件不存在或不是普通文件: {file_path}")
+
+        file_size = os.path.getsize(file_path)
+        if file_size > 1024 * 1024 * 1024:
+            raise APIError("文件超过单步上传的 1 GiB 限制")
+
+        domains = self.get_upload_domains()
+        domain = domains[0]
+        if isinstance(domain, dict):
+            domain = domain.get("url") or domain.get("domain")
+        if not isinstance(domain, str) or not domain:
+            raise APIError("上传域名格式无效")
+        domain = domain.rstrip("/")
+        if not domain.startswith(("http://", "https://")):
+            domain = f"https://{domain}"
+
+        access_token = self.ensure_token()
+        if not access_token:
+            raise TokenExpiredError("无法获取访问令牌")
+
+        filename = os.path.basename(file_path)
+        headers = {
+            "Authorization": access_token,
+            "Platform": PLATFORM_HEADER,
+        }
+        form_data = {
+            "parentFileID": parent_file_id,
+            "filename": filename,
+            "etag": self.calculate_md5(file_path),
+            "size": file_size,
+        }
+
+        try:
+            with open(file_path, "rb") as file_obj:
+                response = requests.post(
+                    f"{domain}/upload/v2/file/single/create",
+                    headers=headers,
+                    files={"file": (filename, file_obj, "application/octet-stream")},
+                    data=form_data,
+                    timeout=(10, 120),
+                )
+            if response.status_code != 200:
+                raise APIError(
+                    f"HTTP {response.status_code}",
+                    status_code=response.status_code,
+                )
+
+            payload = response.json()
+            if payload.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    payload.get("message", "文件上传失败"),
+                    code=payload.get("code"),
+                )
+            result = payload.get("data") or {}
+            if not result.get("completed") or result.get("fileID") is None:
+                raise APIError("服务器未确认上传完成")
+            return result["fileID"]
+        except requests.exceptions.RequestException as exc:
+            raise NetworkError(f"上传文件失败: {exc}", original_error=exc)
+        except OSError as exc:
+            raise APIError(f"读取上传文件失败: {exc}")
+        except (ValueError, TypeError) as exc:
+            raise APIError(f"上传响应格式错误: {exc}")
+
+    def create_directory(self, name: str, parent_id: int = 0) -> int:
+        """创建目录并返回目录 ID。"""
+        if not name or not name.strip():
+            raise APIError("目录名称不能为空")
+
+        access_token = self.ensure_token()
+        if not access_token:
+            raise TokenExpiredError("无法获取访问令牌")
+        headers = {
+            "Authorization": access_token,
+            "Platform": PLATFORM_HEADER,
+        }
+        try:
+            response = requests.post(
+                ENDPOINTS["directory_create"],
+                headers=headers,
+                json={"name": name.strip(), "parentID": parent_id},
+                timeout=DEFAULT_TIMEOUT,
+            )
+            if response.status_code != 200:
+                raise APIError(
+                    f"HTTP {response.status_code}",
+                    status_code=response.status_code,
+                )
+
+            payload = response.json()
+            if payload.get("code") != SUCCESS_CODE:
+                raise APIError(
+                    payload.get("message", "创建目录失败"),
+                    code=payload.get("code"),
+                )
+            directory_id = (payload.get("data") or {}).get("dirID")
+            if directory_id is None:
+                raise APIError("创建目录响应中缺少目录 ID")
+            return directory_id
+        except requests.exceptions.RequestException as exc:
+            raise NetworkError(f"创建目录失败: {exc}", original_error=exc)
+        except (ValueError, TypeError) as exc:
+            raise APIError(f"创建目录响应格式错误: {exc}")
 
     def disable_direct_link(self, file_id: int) -> bool:
         """

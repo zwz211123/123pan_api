@@ -12,7 +12,10 @@ class TestRequestTimeouts(unittest.TestCase):
 
     def test_all_requests_calls_include_timeout(self):
         source_path = Path(__file__).resolve().parents[1] / "api" / "pan_api.py"
-        tree = ast.parse(source_path.read_text(), filename=str(source_path))
+        tree = ast.parse(
+            source_path.read_text(encoding="utf-8"),
+            filename=str(source_path),
+        )
 
         calls_without_timeout = []
         for node in ast.walk(tree):

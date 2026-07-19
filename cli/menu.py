@@ -13,6 +13,7 @@ class MenuPrinter:
         print("1. 分享功能")
         print("2. 文件管理")
         print("3. 直链功能")
+        print("4. 上传功能")
         print("0. 退出程序")
 
     @staticmethod
@@ -44,6 +45,14 @@ class MenuPrinter:
         print("1. 启用文件直链")
         print("2. 禁用文件直链")
         print("3. 获取文件直链")
+        print("0. 返回主菜单")
+
+    @staticmethod
+    def print_upload_menu():
+        """Print upload functionality menu."""
+        print("\n选择上传功能:")
+        print("1. 上传文件")
+        print("2. 创建目录")
         print("0. 返回主菜单")
 
     @staticmethod

@@ -22,6 +22,8 @@ ENDPOINTS = {
     "file_trash": f"{API_BASE_URL}/v1/file/trash",
     "file_delete": f"{API_BASE_URL}/v1/file/delete",
     "file_recover": f"{API_BASE_URL}/v1/file/recover",
+    "upload_domain": "https://open-api.123pan.com/upload/v2/file/domain",
+    "directory_create": f"{API_BASE_URL}/v1/upload/v1/file/mkdir",
     "share_list": f"{API_BASE_URL}/v1/share/list",
     "share_update": f"{API_BASE_URL}/v1/share/update",
     "share_create": f"{API_BASE_URL}/v1/share/create",

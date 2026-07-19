@@ -465,3 +465,60 @@ class DirectLinkHandler:
         except Exception as e:
             self.menu.print_error(f"未知错误: {e}")
             logger.exception("Unexpected error in get_direct_link")
+
+
+class UploadHandler:
+    """Handle file upload and directory creation operations."""
+
+    def __init__(self, api: PanAPI):
+        self.api = api
+        self.menu = MenuPrinter()
+        self.parser = InputParser()
+
+    def upload_file(self) -> None:
+        """Prompt for a local file and upload it."""
+        try:
+            file_path = input("请输入要上传的文件路径: ").strip().strip('"')
+            if not file_path:
+                self.menu.print_error("文件路径不能为空")
+                return
+            parent_id = self.parser.prompt_optional_int(
+                "请输入父目录 ID (默认为 0，表示根目录): ",
+                default=0,
+            )
+            if parent_id is None or parent_id < 0:
+                self.menu.print_error("父目录 ID 必须是非负整数")
+                return
+            file_id = self.api.upload_file(file_path, parent_id)
+            self.menu.print_success(f"文件上传成功，文件 ID: {file_id}")
+        except (TokenExpiredError, NetworkError, APIError) as exc:
+            self.menu.print_error(f"上传文件失败: {exc}")
+        except KeyboardInterrupt:
+            self.menu.print_info("操作已取消")
+        except Exception as exc:
+            self.menu.print_error(f"未知错误: {exc}")
+            logger.exception("Unexpected error in upload_file")
+
+    def create_directory(self) -> None:
+        """Prompt for directory information and create it."""
+        try:
+            name = input("请输入目录名称: ").strip()
+            if not name:
+                self.menu.print_error("目录名称不能为空")
+                return
+            parent_id = self.parser.prompt_optional_int(
+                "请输入父目录 ID (默认为 0，表示根目录): ",
+                default=0,
+            )
+            if parent_id is None or parent_id < 0:
+                self.menu.print_error("父目录 ID 必须是非负整数")
+                return
+            directory_id = self.api.create_directory(name, parent_id)
+            self.menu.print_success(f"目录创建成功，目录 ID: {directory_id}")
+        except (TokenExpiredError, NetworkError, APIError) as exc:
+            self.menu.print_error(f"创建目录失败: {exc}")
+        except KeyboardInterrupt:
+            self.menu.print_info("操作已取消")
+        except Exception as exc:
+            self.menu.print_error(f"未知错误: {exc}")
+            logger.exception("Unexpected error in create_directory")

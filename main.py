@@ -1,121 +1,106 @@
-"""
-Main entry point for 123Pan API CLI
-"""
+"""Main entry point for the 123Pan API CLI."""
 
 from api import PanAPI
-from api.exceptions import CredentialsError, NetworkError, APIError
-from cli import MenuPrinter, ShareHandler, FileHandler, DirectLinkHandler
+from api.exceptions import APIError, CredentialsError, NetworkError
+from cli import DirectLinkHandler, FileHandler, MenuPrinter, ShareHandler, UploadHandler
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
 def main():
-    """Main function - initialize API and start CLI loop"""
+    """Initialize the API client and start the CLI loop."""
     try:
-        # Create API instance, load credentials from access.json
         api = PanAPI(token_file="access.json")
-
-        # Ensure we have a valid access token
-        access_token = api.ensure_token()
-        if not access_token:
-            logger.error("无法获取有效的Access Token")
-            print("错误：无法获取有效的Access Token，请检查凭证是否正确")
+        if not api.ensure_token():
+            logger.error("无法获取有效的 Access Token")
+            print("错误：无法获取有效的 Access Token，请检查凭证是否正确")
             return
-
-    except CredentialsError as e:
-        logger.error(f"凭证错误: {e}")
-        print(f"错误: 凭证无效 - {e}")
-        print("请检查 access.json 文件或直接提供有效的客户端凭证")
+    except CredentialsError as exc:
+        logger.error(f"凭证错误: {exc}")
+        print(f"错误：凭证无效 - {exc}")
         return
-    except NetworkError as e:
-        logger.error(f"网络错误: {e}")
-        print(f"错误: 网络连接失败 - {e}")
-        print("请检查您的网络连接")
+    except NetworkError as exc:
+        logger.error(f"网络错误: {exc}")
+        print(f"错误：网络连接失败 - {exc}")
         return
-    except APIError as e:
-        logger.error(f"API 错误: {e}")
-        print(f"错误: API 请求失败 - {e}")
+    except APIError as exc:
+        logger.error(f"API 错误: {exc}")
+        print(f"错误：API 请求失败 - {exc}")
         return
-    except Exception as e:
-        logger.error(f"初始化失败: {e}")
-        print(f"错误: 初始化失败 - {e}")
+    except Exception as exc:
+        logger.exception("初始化失败")
+        print(f"错误：初始化失败 - {exc}")
         return
 
-    # Initialize menu printer and handlers
     menu = MenuPrinter()
     share_handler = ShareHandler(api)
     file_handler = FileHandler(api)
     direct_link_handler = DirectLinkHandler(api)
+    upload_handler = UploadHandler(api)
 
-    # Main menu loop
     while True:
         menu.print_main_menu()
-        choice = input("请输入选项 (0-3): ").strip()
+        choice = input("请输入选项 (0-4): ").strip()
 
-        if choice == '0':
+        if choice == "0":
             print("感谢使用，再见！")
             break
-
-        elif choice == '1':
-            # Share functions submenu
+        if choice == "1":
             while True:
                 menu.print_share_menu()
-                share_choice = input("请输入选项 (0-3): ").strip()
-
-                if share_choice == '0':
+                subchoice = input("请输入选项 (0-3): ").strip()
+                if subchoice == "0":
                     break
-                elif share_choice == '1':
-                    share_handler.get_share_list()
-                elif share_choice == '2':
-                    share_handler.update_share_info()
-                elif share_choice == '3':
-                    share_handler.create_share_link()
-                else:
-                    menu.print_error("无效选项，请重新输入")
-
-        elif choice == '2':
-            # File management submenu
+                actions = {
+                    "1": share_handler.get_share_list,
+                    "2": share_handler.update_share_info,
+                    "3": share_handler.create_share_link,
+                }
+                action = actions.get(subchoice)
+                action() if action else menu.print_error("无效选项，请重新输入")
+        elif choice == "2":
             while True:
                 menu.print_file_menu()
-                file_choice = input("请输入选项 (0-7): ").strip()
-
-                if file_choice == '0':
+                subchoice = input("请输入选项 (0-7): ").strip()
+                if subchoice == "0":
                     break
-                elif file_choice == '1':
-                    file_handler.get_file_list()
-                elif file_choice == '2':
-                    file_handler.view_file_detail()
-                elif file_choice == '3':
-                    file_handler.move_files()
-                elif file_choice == '4':
-                    file_handler.rename_file()
-                elif file_choice == '5':
-                    file_handler.trash_files()
-                elif file_choice == '6':
-                    file_handler.delete_files()
-                elif file_choice == '7':
-                    file_handler.recover_files()
-                else:
-                    menu.print_error("无效选项，请重新输入")
-
-        elif choice == '3':
-            # Direct link functions submenu
+                actions = {
+                    "1": file_handler.get_file_list,
+                    "2": file_handler.view_file_detail,
+                    "3": file_handler.move_files,
+                    "4": file_handler.rename_file,
+                    "5": file_handler.trash_files,
+                    "6": file_handler.delete_files,
+                    "7": file_handler.recover_files,
+                }
+                action = actions.get(subchoice)
+                action() if action else menu.print_error("无效选项，请重新输入")
+        elif choice == "3":
             while True:
                 menu.print_direct_link_menu()
-                direct_choice = input("请输入选项 (0-3): ").strip()
-
-                if direct_choice == '0':
+                subchoice = input("请输入选项 (0-3): ").strip()
+                if subchoice == "0":
                     break
-                elif direct_choice == '1':
-                    direct_link_handler.enable_direct_link()
-                elif direct_choice == '2':
-                    direct_link_handler.disable_direct_link()
-                elif direct_choice == '3':
-                    direct_link_handler.get_direct_link()
-                else:
-                    menu.print_error("无效选项，请重新输入")
-
+                actions = {
+                    "1": direct_link_handler.enable_direct_link,
+                    "2": direct_link_handler.disable_direct_link,
+                    "3": direct_link_handler.get_direct_link,
+                }
+                action = actions.get(subchoice)
+                action() if action else menu.print_error("无效选项，请重新输入")
+        elif choice == "4":
+            while True:
+                menu.print_upload_menu()
+                subchoice = input("请输入选项 (0-2): ").strip()
+                if subchoice == "0":
+                    break
+                actions = {
+                    "1": upload_handler.upload_file,
+                    "2": upload_handler.create_directory,
+                }
+                action = actions.get(subchoice)
+                action() if action else menu.print_error("无效选项，请重新输入")
         else:
             menu.print_error("无效选项，请重新输入")
 
